@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Disease Detection Result</title>
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- jQuery (required for consistency) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Google Translate API -->
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'en',
+                includedLanguages: 'en,hi,ta,te,ml,kn,bn,gu,pa,ne,si,ur,as,or,sa,ks,mr',
+                layout: google.translate.TranslateElement.InlineLayout.HORIZONTAL,
+                autoDisplay: false
+            }, 'google_translate_element');
+            
+            // Listen for translation completion
+            setTimeout(function() {
+                const select = document.querySelector('.goog-te-combo');
+                if (select) {
+                    // Load previously selected language from session storage
+                    loadSavedLanguage(select);
+                    
+                    select.addEventListener('change', function() {
+                        const selectedText = this.options[this.selectedIndex] ? this.options[this.selectedIndex].text : 'Language';
+                        document.getElementById('currentLanguage').innerText = selectedText;
+                        document.getElementById('currentLanguageMobile').innerText = selectedText;
+                        
+                        // Save selected language to session storage
+                        sessionStorage.setItem('userSelectedLanguage', this.value);
+                    });
+                }
+                
+                // Hide Google top bar
+                hideGoogleBar();
+            }, 1000);
+        }
+        
+        // Function to load saved language from sessionStorage
+        function loadSavedLanguage(select) {
+            const savedLang = sessionStorage.getItem('userSelectedLanguage');
+            if (savedLang) {
+                // Find and select the saved language
+                for (let i = 0; i < select.options.length; i++) {
+                    if (select.options[i].value === savedLang) {
+                        select.selectedIndex = i;
+                        
+                        // Update display text for both selectors
+                        const selectedText = select.options[i].text;
+                        document.getElementById('currentLanguage').innerText = selectedText;
+                        document.getElementById('currentLanguageMobile').innerText = selectedText;
+                        
+                        // Trigger change event to apply translation
+                        const event = new Event('change', { bubbles: true });
+                        select.dispatchEvent(event);
+                        break;
+                    }
+                }
+            } else {
+                // Default to English if no language is saved
+                document.getElementById('currentLanguage').innerText = 'English';
+                document.getElementById('currentLanguageMobile').innerText = 'English';
+            }
+        }
+
+        function translatePage(lang) {
+            // Store user language selection
+            sessionStorage.setItem('userSelectedLanguage', lang);
+            
+            // Find the translate element's dropdown
+            var select = document.querySelector('.goog-te-combo');
+            if (select) {
+                // If it's already in English and we're trying to select English again, force a reset
+                if (lang === 'en' && select.value === 'en') {
+                    // Force reload to reset to original English
+                    window.location.reload();
+                    return;
+                }
+                
+                // Update the dropdown value
+                for (var i = 0; i < select.options.length; i++) {
+                    if (select.options[i].value === lang) {
+                        select.selectedIndex = i;
+                        // Update display text safely for both selectors
+                        const selectedText = select.options[i] ? select.options[i].text : 'Language';
+                        document.getElementById('currentLanguage').innerText = selectedText;
+                        document.getElementById('currentLanguageMobile').innerText = selectedText;
+                        break;
+                    }
+                }
+                // Trigger the change event
+                var event = new Event('change', { bubbles: true });
+                select.dispatchEvent(event);
+                
+                // Hide Google top bar after translation
+                setTimeout(hideGoogleBar, 1000);
+            }
+        }
+        
+        // Function to hide the Google Translate bar
+        function hideGoogleBar() {
+            // Hide the Google translate bar
+            const googleTopBar = document.querySelector('.skiptranslate');
+            if (googleTopBar) {
+                googleTopBar.style.display = 'none';
+            }
+            
+            // Also fix the body position that Google modifies
+            if (document.body.style.top) {
+                document.body.style.top = '0px';
+            }
+        }
+        
+        // Check for language preference on page load and apply it
+        document.addEventListener('DOMContentLoaded', function() {
+            // Create an observer instance to watch for the Google bar
+            const observer = new MutationObserver(function(mutations) {
+                hideGoogleBar();
+            });
+            
+            // Start observing the body for added nodes
+            observer.observe(document.body, { childList: true, subtree: true });
+            
+            // Also set up CSS to hide it permanently
+            const style = document.createElement('style');
+            style.textContent = `
+                .skiptranslate, .goog-te-banner-frame {
+                    display: none !important;
+                    visibility: hidden !important;
+                }
+                body {
+                    top: 0px !important;
+                }
+            `;
+            document.head.appendChild(style);
+        });
+    </script>
+    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+            color: #343a40;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .result-container {
+            background-color: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 2rem;
+            margin-top: 3rem;
+            margin-bottom: 3rem;
+        }
+        .result-header {
+            color: #198754;
+            font-weight: 600;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .prediction-box {
+            background-color: #f8f9fa;
+            border-left: 5px solid #198754;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+        }
+        .prediction-title {
+            font-weight: 600;
+            color: #198754;
+            margin-bottom: 0.5rem;
+        }
+        .image-container {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .uploaded-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .next-steps {
+            background-color: #f8f9fa;
+            border-left: 5px solid #0d6efd;
+            padding: 1.5rem;
+            border-radius: 10px;
+        }
+        .steps-title {
+            font-weight: 600;
+            color: #0d6efd;
+            margin-bottom: 0.5rem;
+        }
+        .step-item {
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: flex-start;
+        }
+        .step-icon {
+            color: #0d6efd;
+            margin-right: 0.5rem;
+            margin-top: 0.25rem;
+        }
+        .btn-primary {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            padding: 0.5rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 500;
+            box-shadow: 0 4px 6px rgba(13, 110, 253, 0.2);
+            transition: all 0.3s;
+        }
+        .btn-primary:hover {
+            background-color: #0b5ed7;
+            border-color: #0b5ed7;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(13, 110, 253, 0.3);
+        }
+        .text-analysis {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .text-analysis h5 {
+            color: #0d6efd;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        .text-analysis p {
+            background: #ffffff;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 3px solid #0d6efd;
+        }
+        /* Add text wrapping styles to prevent horizontal scrolling */
+        .disease-name, .disease-description, .treatment-section, .prevention-section, .references-section {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            hyphens: auto;
+            max-width: 100%;
+        }
+        
+        /* Make sure all content stays within the viewport */
+        .container {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        
+        /* Enhanced styles for detailed analysis */
+        .detailed-analysis {
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+        
+        .detailed-analysis h6 {
+            background-color: #4a9d5e;
+            color: white;
+            padding: 12px 15px;
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .detailed-analysis h6 i {
+            margin-right: 8px;
+        }
+        
+        .analysis-result, .prevention-advice {
+            background-color: #f8f9fa;
+            padding: 15px 20px;
+            border-radius: 0 0 10px 10px;
+        }
+        
+        .analysis-result h5, .prevention-advice h5 {
+            color: #38703d;
+            font-size: 1.05rem;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            border-bottom: 1px dashed #d1e7dd;
+            padding-bottom: 8px;
+        }
+        
+        .analysis-result p, .prevention-advice p {
+            color: #333;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+        
+        .analysis-result ul, .prevention-advice ul {
+            padding-left: 25px;
+        }
+        
+        .analysis-result li, .prevention-advice li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+        
+        .analysis-result strong, .prevention-advice strong {
+            color: #38703d;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .detailed-analysis {
+                margin-left: -10px;
+                margin-right: -10px;
+                border-radius: 0;
+            }
+            
+            .analysis-result, .prevention-advice {
+                padding: 12px 15px;
+            }
+        }
+
+        /* Weather analysis container */
+        #weather-analysis .weather-disease-analysis {
+            border: 1px solid #d1e7dd;
+            border-radius: 10px;
+            margin-top: 20px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        #weather-analysis .weather-disease-analysis h5 {
+            background-color: #4a9d5e;
+            color: white;
+            padding: 12px 15px;
+            margin: 0;
+            font-weight: 600;
+        }
+        
+        /* Style for the analysis tables */
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            background-color: white;
+        }
+        
+        .detail-table th {
+            background-color: #e9f7ef;
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #d1e7dd;
+            color: #38703d;
+        }
+        
+        .detail-table td {
+            padding: 10px;
+            border: 1px solid #d1e7dd;
+        }
+        
+        .detail-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <!-- Hidden Google Translate Element -->
+    <div id="google_translate_element" style="display:none;"></div>
+
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">AgroDx</a>
+            
+            <!-- Mobile-only buttons that are always visible -->
+            <div class="d-flex d-lg-none order-lg-last mobile-nav-buttons">
+                <!-- Language selector for mobile -->
+                <div class="dropdown me-2">
+                    <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" 
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-language"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('en')">English</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('hi')">हिन्दी</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('bn')">বাংলা</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('te')">తెలుగు</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('ta')">தமிழ்</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('mr')">मराठी</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('gu')">ગુજરાતી</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/#tutorial">Get Started</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/#faqAccordion">FAQ</a>
+                    </li>
+                </ul>
+                
+                <!-- Language Selector (visible in desktop view) -->
+                <div class="language-selector d-none d-lg-block me-2">
+                    <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" id="translateBtn"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-language"></i>
+                        <span id="currentLanguage">Language</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="translateBtn">
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('en')">English</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('hi')">हिन्दी (Hindi)</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('bn')">বাংলা (Bengali)</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('te')">తెలుగు (Telugu)</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('ta')">தமிழ் (Tamil)</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('mr')">मराठी (Marathi)</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('gu')">ગુજરાતી (Gujarati)</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('kn')">ಕನ್ನಡ (Kannada)</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('ml')">മലയാളം (Malayalam)</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('pa')">ਪੰਜਾਬੀ (Punjabi)</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('or')">ଓଡ଼ିଆ (Odia)</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Result Display -->
+    <div class="container result-container">
+        <h1 class="result-header text-center">Plant Disease Detection Results</h1>
+        
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="row">
+            {% if uploaded_text %}
+            <!-- Text-based analysis (full width) -->
+            <div class="col-12">
+                <div class="text-analysis">
+                    <h4><i class="fas fa-file-alt me-2"></i>Symptom Analysis</h4>
+                    <div class="p-3 bg-light rounded">
+                        <h5>You described:</h5>
+                        <p>{{ uploaded_text }}</p>
+                    </div>
+                </div>
+                
+                <div class="prediction-box">
+                    <h4 class="prediction-title"><i class="fas fa-chart-line me-2"></i>Prediction Result</h4>
+                    {% if result %}
+                        <div class="result">
+                            {% if "Disease:" in result %}
+                                {% set sections = result.split('\n\n') %}
+                                {% for section in sections %}
+                                    {% if "Disease:" in section %}
+                                        <div class="disease-name mb-3">
+                                            <h5 class="mb-2">{{ section }}</h5>
+                                        </div>
+                                    {% elif "Description:" in section %}
+                                        <div class="disease-description mb-3">
+                                            <p>{{ section }}</p>
+                                        </div>
+                                    {% elif "Treatment:" in section %}
+                                        <div class="treatment-section mb-3">
+                                            <h5><i class="fas fa-prescription-bottle me-2"></i>Treatment Options</h5>
+                                            {{ section | replace("Treatment:", "") | safe }}
+                                        </div>
+                                    {% elif "Prevention:" in section %}
+                                        <div class="prevention-section mb-3">
+                                            <h5><i class="fas fa-shield-alt me-2"></i>Prevention Measures</h5>
+                                            {{ section | replace("Prevention:", "") | safe }}
+                                        </div>
+                                    {% elif "References:" in section %}
+                                        <div class="references-section mb-3">
+                                            <h5><i class="fas fa-book me-2"></i>References</h5>
+                                            <div class="references-content small">
+                                                {{ section | replace("References:", "") | safe }}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <p class="mb-0">{{ result }}</p>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <p class="result mb-0 text-muted">No result to display. Please try again.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <!-- Image-based analysis (now full width, single column) -->
+            <div class="col-12">
+                <div class="image-container">
+                    <h4><i class="fas fa-image me-2"></i>Uploaded Plant Image</h4>
+                    {% if image_path %}
+                        <img src="{{ url_for('static', filename='uploads/' + image_path) }}" alt="Uploaded plant image" class="uploaded-image">
+                    {% else %}
+                        <div class="text-center text-muted">
+                            <i class="fas fa-image fa-4x mb-3"></i>
+                            <p>No image available</p>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="prediction-box">
+                    <h4 class="prediction-title"><i class="fas fa-chart-line me-2"></i>Prediction Result</h4>
+                    {% if prediction %}
+                        <div class="result">
+                            <h5 class="disease-name mb-3">Disease: {{ prediction }}</h5>
+                            
+                            {% if result %}
+                                {% set sections = result.split('\n\n') %}
+                                {% for section in sections %}
+                                    {% if "Disease:" in section %}
+                                        <!-- Skip the disease name as we already display it above -->
+                                    {% elif "Description:" in section %}
+                                        <div class="disease-description mb-3">
+                                            <p>{{ section }}</p>
+                                        </div>
+                                    {% elif "Treatment:" in section %}
+                                        <div class="treatment-section mb-3">
+                                            <h5><i class="fas fa-prescription-bottle me-2"></i>Treatment Options</h5>
+                                            {{ section | replace("Treatment:", "") | safe }}
+                                        </div>
+                                    {% elif "Prevention:" in section %}
+                                        <div class="prevention-section mb-3">
+                                            <h5><i class="fas fa-shield-alt me-2"></i>Prevention Measures</h5>
+                                            {{ section | replace("Prevention:", "") | safe }}
+                                        </div>
+                                    {% elif "References:" in section %}
+                                        <div class="references-section mb-3">
+                                            <h5><i class="fas fa-book me-2"></i>References</h5>
+                                            <div class="references-content small">
+                                                {{ section | replace("References:", "") | safe }}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    No detailed information available for this disease.
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% elif result %}
+                        <div class="result">
+                            {% if "Disease:" in result %}
+                                {% set sections = result.split('\n\n') %}
+                                {% for section in sections %}
+                                    {% if "Disease:" in section %}
+                                        <div class="disease-name mb-3">
+                                            <h5 class="mb-2">{{ section }}</h5>
+                                        </div>
+                                    {% elif "Description:" in section %}
+                                        <div class="disease-description mb-3">
+                                            <p>{{ section }}</p>
+                                        </div>
+                                    {% elif "Treatment:" in section %}
+                                        <div class="treatment-section mb-3">
+                                            <h5><i class="fas fa-prescription-bottle me-2"></i>Treatment Options</h5>
+                                            {{ section | replace("Treatment:", "") | safe }}
+                                        </div>
+                                    {% elif "Prevention:" in section %}
+                                        <div class="prevention-section mb-3">
+                                            <h5><i class="fas fa-shield-alt me-2"></i>Prevention Measures</h5>
+                                            {{ section | replace("Prevention:", "") | safe }}
+                                        </div>
+                                    {% elif "References:" in section %}
+                                        <div class="references-section mb-3">
+                                            <h5><i class="fas fa-book me-2"></i>References</h5>
+                                            <div class="references-content small">
+                                                {{ section | replace("References:", "") | safe }}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <p class="mb-0">{{ result }}</p>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <p class="result mb-0 text-muted">No result to display. Please try again.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="next-steps">
+                <h4 class="steps-title"><i class="fas fa-clipboard-list me-2"></i>Next Steps</h4>
+                
+                <div class="step-item">
+                    <span class="step-icon"><i class="fas fa-search"></i></span>
+                    <div>
+                        <strong>Research:</strong> Learn more about the detected disease and its treatments
+                    </div>
+                </div>
+                
+                <div class="step-item">
+                    <span class="step-icon"><i class="fas fa-user-md"></i></span>
+                    <div>
+                        <strong>Consult Agricultural Expert:</strong> Get professional advice specific to your crop and region
+                    </div>
+                </div>
+                
+                <div class="step-item">
+                    <span class="step-icon"><i class="fas fa-prescription-bottle"></i></span>
+                    <div>
+                        <strong>Treatment:</strong> Apply appropriate treatments as recommended by experts
+                    </div>
+                </div>
+                
+                <div class="step-item">
+                    <span class="step-icon"><i class="fas fa-seedling"></i></span>
+                    <div>
+                        <strong>Prevention:</strong> Take preventive measures to avoid future infections
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <a href="/" class="btn btn-primary">
+                <i class="fas fa-home me-2"></i>Return to Home
+            </a>
+        </div>
+    </div>
+
+    <footer class="footer bg-dark text-light py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <!-- About Section -->
+                <div class="col-lg-4 col-md-6 footer-about">
+                    <h4>About AgroDx</h4>
+                    <p>AgroDx is a cutting-edge plant disease detection platform that uses artificial intelligence to help 
+                    farmers identify crop diseases early and take appropriate action to protect their harvests.</p>
+                </div>
+
+                <!-- Quick Links -->
+                <div class="col-lg-4 col-md-6 footer-links">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="/">Home</a></li>
+                        <li><a href="/#tutorial">Get Started</a></li>
+                        <li><a href="/#faqAccordion">FAQ</a></li>
+                    </ul>
+                </div>
+
+                <!-- Contact Info -->
+                <div class="col-lg-4 col-md-12 footer-contact">
+                    <h4>Contact Us</h4>
+                    <p>Email: support@agrodx.com</p>
+                    <p>Phone: +91 98765 43210</p>
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- Copyright -->
+            <div class="text-center">
+                <p class="mb-0">&copy; 2023 AgroDx. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/location-weather.js') }}"></script>
+</body>
+</html>

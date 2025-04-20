@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location & Weather Test - AgroDx</title>
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .test-container {
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+        .card-header {
+            background-color: #3a7bd5;
+            color: white;
+            font-weight: 600;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+        }
+        .btn-primary {
+            background-color: #3a7bd5;
+            border-color: #3a7bd5;
+        }
+        .btn-primary:hover {
+            background-color: #2d62b2;
+            border-color: #2d62b2;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">AgroDx</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/test-location-weather">Test Location & Weather</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container test-container">
+        <h1 class="mb-4">Location & Weather Testing</h1>
+        <p class="lead">This page tests the location detection, weather data fetching, and disease analysis functionality.</p>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-map-marker-alt me-2"></i>Location Detection
+                    </div>
+                    <div class="card-body">
+                        <div id="location-status">
+                            <p>Click the button below to detect your location</p>
+                        </div>
+                        <button id="get-location-btn" class="btn btn-primary mt-3">
+                            <i class="fas fa-location-arrow me-2"></i>Get My Location
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-cloud-sun me-2"></i>Weather Data
+                    </div>
+                    <div class="card-body">
+                        <div id="weather-status">
+                            <p>Weather data will appear here after location is detected</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-microscope me-2"></i>Disease Analysis Test
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="test-disease" class="form-label">Select a disease to test:</label>
+                                    <select class="form-select" id="test-disease">
+                                        <option value="">Select a disease...</option>
+                                        <option value="Apple Scab">Apple Scab</option>
+                                        <option value="Apple Black Rot">Apple Black Rot</option>
+                                        <option value="Cedar Apple Rust">Cedar Apple Rust</option>
+                                        <option value="Root Rot">Root Rot (Blueberry)</option>
+                                        <option value="Powdery Mildew">Powdery Mildew (Cherry)</option>
+                                        <option value="Cercospora Leaf Spot">Cercospora Leaf Spot (Corn)</option>
+                                        <option value="Common Rust">Common Rust (Corn)</option>
+                                        <option value="Northern Leaf Blight">Northern Leaf Blight (Corn)</option>
+                                    </select>
+                                </div>
+                                <button id="analyze-btn" class="btn btn-primary" disabled>
+                                    <i class="fas fa-vial me-2"></i>Analyze Disease Conditions
+                                </button>
+                            </div>
+                            <div class="col-md-8">
+                                <div id="weather-analysis">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Select a disease and click "Analyze" after your location is detected to see if current weather conditions match typical disease conditions.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-code me-2"></i>API Response Details
+                    </div>
+                    <div class="card-body">
+                        <div id="api-response">
+                            <p>API responses will be logged here</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer bg-dark text-light py-4 mt-5">
+        <div class="container text-center">
+            <p>AgroDx - Location & Weather Testing Page</p>
+            <p class="mb-0">&copy; 2023 AgroDx. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/location-weather.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/test-location-weather.js') }}"></script>
+</body>
+</html> 

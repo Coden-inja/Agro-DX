@@ -1,0 +1,2086 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://www.gstatic.com https://translate.google.com https://translate.googleapis.com https://translate-pa.googleapis.com https://cdnjs.cloudflare.com https://apis.google.com https://*.firebaseio.com https://*.firebase.com https://*.firebaseauth.com https://identity.security.googleapis.com https://identitytoolkit.googleapis.com; connect-src 'self' https://translate.googleapis.com https://translate.google.com https://translate-pa.googleapis.com https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com wss://*.firebaseio.com https://firestore.googleapis.com; img-src 'self' data: blob: https://translate.googleapis.com https://translate.google.com https://fonts.gstatic.com https://www.gstatic.com https://*.googleapis.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://translate.googleapis.com https://www.gstatic.com https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; frame-src 'self' https://accounts.google.com https://apis.google.com;">
+    <title>AgroDx - Plant Disease Detection</title>
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <!-- jQuery (required for offline mode) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Google Translate API -->
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'en',
+                includedLanguages: 'en,hi,ta,te,ml,kn,bn,gu,pa,ne,si,ur,as,or,sa,ks,mr',
+                layout: google.translate.TranslateElement.InlineLayout.HORIZONTAL,
+                autoDisplay: false
+            }, 'google_translate_element');
+            
+            // Listen for translation completion
+            setTimeout(function() {
+                const select = document.querySelector('.goog-te-combo');
+                if (select) {
+                    // Reset to English if not explicitly set to another language
+                    ensureEnglishDefault(select);
+                    
+                    select.addEventListener('change', function() {
+                        const selectedText = this.options[this.selectedIndex] ? this.options[this.selectedIndex].text : 'Language';
+                        document.getElementById('currentLanguage').innerText = selectedText;
+                        
+                        // Save language selection to sessionStorage
+                        sessionStorage.setItem('userSelectedLanguage', this.value);
+                    });
+                }
+                
+                // Hide Google top bar
+                hideGoogleBar();
+            }, 1000);
+        }
+        
+        // Function to ensure the page starts in English
+        function ensureEnglishDefault(select) {
+            // Check for user saved language preference first
+            const savedLang = sessionStorage.getItem('userSelectedLanguage');
+            if (savedLang) {
+                // Find and select the saved language
+                for (let i = 0; i < select.options.length; i++) {
+                    if (select.options[i].value === savedLang) {
+                        select.selectedIndex = i;
+                        
+                        // Update display text
+                        const selectedText = select.options[i].text;
+                        document.getElementById('currentLanguage').innerText = selectedText;
+                        
+                        // Trigger change event to apply translation
+                        const event = new Event('change', { bubbles: true });
+                        select.dispatchEvent(event);
+                        return; // Exit early since we found and applied saved language
+                    }
+                }
+            }
+            
+            // If no language is selected or page was auto-translated to a non-English language
+            if (select.value && select.value !== 'en') {
+                // Check if auto-translated
+                if (!sessionStorage.getItem('userSelectedLanguage')) {
+                    // Reset to English
+                    select.value = 'en';
+                    const event = new Event('change', { bubbles: true });
+                    select.dispatchEvent(event);
+                }
+            }
+            
+            // Update the display text
+            const currentLang = select.value || 'en';
+            const langDisplay = currentLang === 'en' ? 'English' : 
+                             (select.options[select.selectedIndex] ? select.options[select.selectedIndex].text : 'Language');
+            document.getElementById('currentLanguage').innerText = langDisplay;
+        }
+
+        function translatePage(lang) {
+            // Store user language selection
+            sessionStorage.setItem('userSelectedLanguage', lang);
+            
+            // Find the translate element's dropdown
+            var select = document.querySelector('.goog-te-combo');
+            if (select) {
+                // If it's already in English and we're trying to select English again, force a reset
+                if (lang === 'en' && select.value === 'en') {
+                    // Force reload to reset to original English
+                    window.location.reload();
+                    return;
+                }
+                
+                // Update the dropdown value
+                for (var i = 0; i < select.options.length; i++) {
+                    if (select.options[i].value === lang) {
+                        select.selectedIndex = i;
+                        // Update display text
+                        const selectedText = select.options[i] ? select.options[i].text : 'Language';
+                        document.getElementById('currentLanguage').innerText = selectedText;
+                        break;
+                    }
+                }
+                // Trigger the change event
+                var event = new Event('change', { bubbles: true });
+                select.dispatchEvent(event);
+                
+                // Hide Google top bar after translation
+                setTimeout(hideGoogleBar, 1000);
+            }
+        }
+        
+        // Function to hide the Google Translate bar
+        function hideGoogleBar() {
+            // Hide the Google translate bar
+            const googleTopBar = document.querySelector('.skiptranslate');
+            if (googleTopBar) {
+                googleTopBar.style.display = 'none';
+            }
+            
+            // Also fix the body position that Google modifies
+            if (document.body.style.top) {
+                document.body.style.top = '0px';
+            }
+        }
+        
+        // Set up observer to hide Google bar whenever it appears
+        document.addEventListener('DOMContentLoaded', function() {
+            // Create an observer instance to watch for the Google bar
+            const observer = new MutationObserver(function(mutations) {
+                hideGoogleBar();
+            });
+            
+            // Start observing the body for added nodes
+            observer.observe(document.body, { childList: true, subtree: true });
+            
+            // Also set up CSS to hide it permanently
+            const style = document.createElement('style');
+            style.textContent = `
+                .skiptranslate, .goog-te-banner-frame {
+                    display: none !important;
+                    visibility: hidden !important;
+                }
+                body {
+                    top: 0px !important;
+                }
+            `;
+            document.head.appendChild(style);
+        });
+    </script>
+    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+
+    <!-- Initialize Firebase -->
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "{{ firebase_config.api_key }}",
+            authDomain: "{{ firebase_config.auth_domain }}",
+            projectId: "{{ firebase_config.project_id }}",
+            storageBucket: "{{ firebase_config.storage_bucket }}",
+            messagingSenderId: "{{ firebase_config.messaging_sender_id }}",
+            appId: "{{ firebase_config.app_id }}",
+            databaseURL: "{{ firebase_config.database_url }}"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+    </script>
+
+    <!-- TensorFlow.js (Updated to 4.12.0) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.12.0/dist/tf.min.js"></script>
+
+    <!-- Custom Firebase Config and Auth -->
+    <script src="static/js/firebase-config.js" defer></script>
+    <script src="static/js/auth.js" defer></script>
+
+    <!-- Add styling for the tutorial video -->
+    <style>
+        .tutorial-video-container {
+            position: relative;
+            width: 100%;
+            margin: 0 auto;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+        
+        .tutorial-video {
+            width: 100%;
+            display: block;
+            border-radius: 10px;
+        }
+        
+        @media (min-width: 992px) {
+            /* For desktop, make the video card sticky */
+            .col-lg-4 .card {
+                position: sticky;
+                top: 20px;
+            }
+            
+            /* Adjust height to fit the content */
+            .tutorial-video-container {
+                max-height: 600px;
+            }
+        }
+        
+        /* For mobile phones (9:16 aspect ratio) */
+        @media (max-width: 991.98px) {
+            .tutorial-video-container {
+                max-width: 300px;
+            }
+            
+            /* Add some space above the video card on mobile */
+            .col-lg-4 {
+                margin-top: 1.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">AgroDx</a>
+            
+            <!-- Mobile-only buttons that are always visible -->
+            <div class="d-flex d-lg-none order-lg-last mobile-nav-buttons">
+                <!-- Language selector for mobile -->
+                <div class="dropdown me-2">
+                    <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" 
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-language"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('en')">English</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('hi')">हिन्दी</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('bn')">বাংলা</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('te')">తెలుగు</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('ta')">தமிழ்</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('mr')">मराठी</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="translatePage('gu')">ગુજરાતી</a></li>
+                    </ul>
+                </div>
+                
+                <!-- Dashboard button for mobile -->
+                <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary btn-sm me-2 d-none" id="mobileDashboardBtn">
+                    <i class="fas fa-chart-line"></i>
+                </a>
+                
+                <!-- Login button for mobile -->
+                <button type="button" class="btn btn-outline-light btn-sm me-2" data-bs-toggle="modal" data-bs-target="#loginModal" id="mobileLoginBtn">
+                    <i class="fas fa-sign-in-alt"></i>
+                </button>
+                
+                <!-- Register button for mobile -->
+                <button type="button" class="btn btn-success btn-sm me-2" data-bs-toggle="modal" data-bs-target="#registerModal" id="mobileRegisterBtn">
+                    <i class="fas fa-user-plus"></i>
+                </button>
+                
+                <!-- Logout button for mobile -->
+                <button type="button" class="btn btn-outline-light btn-sm me-2 d-none" id="mobileLogoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#tutorial">Get Started</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
+                            data-bs-toggle="dropdown">
+                            More
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/about">About Us</a></li>
+                            <li><a class="dropdown-item" href="#footer">Contact</a></li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <!-- Alert Container for Auth Messages -->
+                <div id="alert-container" class="position-fixed top-0 start-50 translate-middle-x mt-3"
+                    style="z-index: 1050;"></div>
+
+                <!-- User Display (shows when logged in) -->
+                <div class="nav-item me-3 d-none" id="userDisplay">
+                    <span class="text-light d-flex align-items-center">
+                        <i class="fas fa-user-circle me-1"></i>
+                        <span class="user-name"></span>
+                    </span>
+                </div>
+
+                <div class="nav-buttons d-none d-lg-flex">
+                    <!-- Language Selector for Desktop -->
+                    <div class="language-selector me-2">
+                        <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" id="translateBtn"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-language"></i>
+                            <span id="currentLanguage">Language</span>
+                        </button>
+
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="translateBtn">
+                            <li><a class="dropdown-item" href="#" onclick="translatePage('en')">English</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="translatePage('hi')">हिन्दी (Hindi)</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="translatePage('bn')">বাংলা (Bengali)</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="translatePage('te')">తెలుగు (Telugu)</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="translatePage('ta')">தமிழ் (Tamil)</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="translatePage('mr')">मराठी (Marathi)</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="translatePage('gu')">ગુજરાતી (Gujarati)</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="translatePage('kn')">ಕನ್ನಡ (Kannada)</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="translatePage('ml')">മലയാളം (Malayalam)</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="translatePage('pa')">ਪੰਜਾਬੀ (Punjabi)</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="translatePage('or')">ଓଡ଼ିଆ (Odia)</a></li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Auth Buttons (Only shown when logged out) -->
+                    <div class="auth-buttons" id="authButtons">
+                        <button type="button" class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#loginModal" id="loginBtn">
+                            <i class="fas fa-sign-in-alt"></i> Login
+                        </button>
+                        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#registerModal" id="registerBtn">
+                            <i class="fas fa-user-plus"></i> Register
+                        </button>
+                        <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary btn-sm d-none" id="dashboardBtn">
+                            <i class="fas fa-chart-line"></i> Dashboard
+                        </a>
+                        <button type="button" class="btn btn-outline-light btn-sm d-none" id="logoutBtn">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="loginModalLabel">Login</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="loginEmail" class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="loginEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loginPassword" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="loginPassword" required>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Login</button>
+                            <button type="button" id="googleSignIn" class="btn btn-outline-danger">
+                                <i class="bi bi-google"></i> Sign in with Google
+                            </button>
+                        </div>
+                    </form>
+                    <hr>
+                    <div class="text-center">
+                        <p>Don't have an account? <a href="#" data-bs-toggle="modal" data-bs-target="#registerModal" data-bs-dismiss="modal">Register here</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Register Modal -->
+    <div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="registerModalLabel">Register</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="registerForm">
+                        <div class="mb-3">
+                            <label for="registerName" class="form-label">Full Name</label>
+                            <input type="text" class="form-control" id="registerName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerEmail" class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="registerEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerPassword" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="registerPassword" required>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Register</button>
+                            <button type="button" id="googleSignUp" class="btn btn-outline-danger">
+                                <i class="bi bi-google"></i> Sign up with Google
+                            </button>
+                        </div>
+                    </form>
+                    <hr>
+                    <div class="text-center">
+                        <p>Already have an account? <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal" data-bs-dismiss="modal">Login here</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Hero Section -->
+    <div id="heroCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
+        <!-- Indicators -->
+        <div class="carousel-indicators">
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="2"></button>
+        </div>
+
+        <!-- Slides -->
+        <div class="carousel-inner">
+            <div class="carousel-item active">
+                <img src="static/images/hero1.jpg" class="d-block w-100" alt="Slide 1">
+                <div class="overlay"></div>
+                <div class="carousel-caption d-flex flex-column align-items-center justify-content-center">
+                    <h1>AI-Powered Plant Disease Detection</h1>
+                    <h3>Early Detection Saves Crops</h3>
+                    <p>Upload a leaf image and get instant diagnosis</p>
+                </div>
+            </div>
+
+            <div class="carousel-item">
+                <img src="static/images/hero2.jpg" class="d-block w-100" alt="Slide 2">
+                <div class="overlay"></div>
+                <div class="carousel-caption d-flex flex-column align-items-center justify-content-center">
+                    <h1>Fast & Reliable Analysis</h1>
+                    <h3>Powered by Advanced Neural Networks</h3>
+                    <p>Diagnose plant diseases with 95% accuracy</p>
+                </div>
+            </div>
+
+            <div class="carousel-item">
+                <img src="static/images/hero3.jpg" class="d-block w-100" alt="Slide 3">
+                <div class="overlay"></div>
+                <div class="carousel-caption d-flex flex-column align-items-center justify-content-center">
+                    <h1>Protect Your Crops</h1>
+                    <h3>Prevent Yield Loss & Increase Productivity</h3>
+                    <p>Get treatment recommendations instantly</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon"></span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon"></span>
+        </button>
+    </div>
+
+
+    <!-- Tutorial Section -->
+    <section id="tutorial" class="tutorial-section">
+        <div class="container">
+            <h2 class="section-title text-center mb-4">Plant Disease Detection</h2>
+            
+            <div class="row">
+                <!-- Image Capture Tips (Full width) -->
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h2 class="mb-3">📸 How to Capture Plant Images</h2>
+                            <ul class="quick-tips">
+                                <li><strong>White background</strong> - Use plain paper for contrast</li>
+                                <li><strong>Good lighting</strong> - Natural light works best</li>
+                                <li><strong>Focus on symptoms</strong> - Show disease spots clearly</li>
+                                <li><strong>Full leaf</strong> - Include the entire leaf</li>
+                                <li><strong>No shadows</strong> - Avoid shadows on the leaf</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main content row with detection and video -->
+            <div class="row">
+                <!-- Detection Forms Column -->
+                <div class="col-lg-8 mb-4 mb-lg-0">
+                    <!-- Toggle for Online vs. Offline Mode -->
+                    <label for="mode-toggle">Choose Mode:</label>
+                    <select id="mode-toggle" class="form-select mb-3">
+                        <option value="online">Online Mode (Fast)</option>
+                        <option value="offline">Offline Mode (No Internet)</option>
+                    </select>
+
+                    <!-- Online Mode Forms -->
+                    <div id="online-mode">
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h4>Image-Based Disease Detection</h4>
+                                <div class="mb-3">
+                                    <label for="plant-type-online" class="form-label">Select Plant Type:</label>
+                                    <select id="plant-type-online" class="form-select mb-3">
+                                        <option value="any" selected>Any plant</option>
+                                        <option value="apple">Apple</option>
+                                        <option value="blueberry">Blueberry</option>
+                                        <option value="cherry">Cherry</option>
+                                        <option value="corn">Corn</option>
+                                        <option value="grape">Grape</option>
+                                        <option value="orange">Orange</option>
+                                        <option value="peach">Peach</option>
+                                        <option value="pepper">Pepper</option>
+                                        <option value="potato">Potato</option>
+                                        <option value="raspberry">Raspberry</option>
+                                        <option value="soybean">Soybean</option>
+                                        <option value="squash">Squash</option>
+                                        <option value="strawberry">Strawberry</option>
+                                        <option value="tomato">Tomato</option>
+                                    </select>
+                                </div>
+                                <form action="/upload" method="POST" enctype="multipart/form-data" id="image-upload-form">
+                                    <div class="mb-3">
+                                        <div class="d-flex flex-column gap-3">
+                                            <!-- Camera capture option -->
+                                            <div class="camera-option">
+                                                <button type="button" id="open-camera-online" class="btn btn-success w-100 mb-2">
+                                                    <i class="fas fa-camera me-2"></i>Take Photo
+                                                </button>
+                                                <div id="camera-feed-container-online" class="d-none">
+                                                    <video id="camera-feed-online" class="w-100 mb-2" autoplay playsinline></video>
+                                                    <div class="d-flex justify-content-between mb-3">
+                                                        <button type="button" id="capture-photo-online" class="btn btn-primary">
+                                                            <i class="fas fa-camera me-1"></i>Capture
+                                                        </button>
+                                                        <button type="button" id="close-camera-online" class="btn btn-secondary">
+                                                            <i class="fas fa-times me-1"></i>Close
+                                                        </button>
+                                                    </div>
+                                                    <canvas id="photo-canvas-online" class="d-none"></canvas>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- File upload option -->
+                                            <input type="file" name="file" class="form-control" id="image-input-online"
+                                                accept="image/*" required>
+                                            <div id="image-preview" class="mt-2">
+                                                <img id="preview-image" class="img-fluid" style="max-width: 300px;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="online-image-loading" class="d-none mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="spinner-border text-primary me-2" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <span>Diagnosing image...</span>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary" id="detect-image-btn">Detect Disease</button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h4>Symptoms-Based Detection (LLM)</h4>
+                                <form action="/text-detection" method="POST" id="symptoms-form">
+                                    <div class="input-group mb-3">
+                                        <input type="text" name="text_input" id="symptoms-input" class="form-control"
+                                            placeholder="Describe plant symptoms (yellowing, spots, wilting, etc.)..." required>
+                                        <button type="button" id="voice-input-btn" class="btn btn-secondary">
+                                            <i class="fas fa-microphone"></i>
+                                        </button>
+                                    </div>
+                                    <div id="voice-status" class="mb-2 text-muted" style="font-size: 0.9em; min-height: 24px;">
+                                    </div>
+                                    <div id="text-loading" class="d-none mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="spinner-border text-success me-2" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <span>Processing symptoms...</span>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-success" id="diagnose-text-btn">Get Diagnosis</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Offline Mode (runs locally, without server connection) -->
+                    <div id="offline-mode" style="display: none;">
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h4>Image-Based Disease Detection</h4>
+                                <div class="mb-3">
+                                    <label for="plant-type-offline" class="form-label">Select Plant Type:</label>
+                                    <select id="plant-type-offline" class="form-select mb-3">
+                                        <option value="any" selected>Any plant</option>
+                                        <option value="apple">Apple</option>
+                                        <option value="blueberry">Blueberry</option>
+                                        <option value="cherry">Cherry</option>
+                                        <option value="corn">Corn</option>
+                                        <option value="grape">Grape</option>
+                                        <option value="orange">Orange</option>
+                                        <option value="peach">Peach</option>
+                                        <option value="pepper">Pepper</option>
+                                        <option value="potato">Potato</option>
+                                        <option value="raspberry">Raspberry</option>
+                                        <option value="soybean">Soybean</option>
+                                        <option value="squash">Squash</option>
+                                        <option value="strawberry">Strawberry</option>
+                                        <option value="tomato">Tomato</option>
+                                    </select>
+                                </div>
+                                <form id="offline-form">
+                                    <div class="mb-3">
+                                        <div class="d-flex flex-column gap-3">
+                                            <!-- Camera capture option -->
+                                            <div class="camera-option">
+                                                <button type="button" id="open-camera" class="btn btn-success w-100 mb-2">
+                                                    <i class="fas fa-camera me-2"></i>Take Photo
+                                                </button>
+                                                <div id="camera-feed-container" class="d-none">
+                                                    <video id="camera-feed" class="w-100 mb-2" autoplay playsinline></video>
+                                                    <div class="d-flex justify-content-between mb-3">
+                                                        <button type="button" id="capture-photo" class="btn btn-primary">
+                                                            <i class="fas fa-camera me-1"></i>Capture
+                                                        </button>
+                                                        <button type="button" id="close-camera" class="btn btn-secondary">
+                                                            <i class="fas fa-times me-1"></i>Close
+                                                        </button>
+                                                    </div>
+                                                    <canvas id="photo-canvas" class="d-none"></canvas>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- File upload option -->
+                                            <input class="form-control" type="file" id="image-input" accept="image/*" required>
+                                            <div id="offline-image-preview" class="mt-2">
+                                                <img id="offline-preview-image" class="img-fluid" style="max-width: 300px;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="offline-loading" class="d-none mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="spinner-border text-primary me-2" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <span>Processing with offline model...</span>
+                                        </div>
+                                    </div>
+                                    <button type="button" id="detect-offline" class="btn btn-primary">
+                                        <i class="fas fa-search me-2"></i>Detect Disease
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- Result Area for Offline Mode -->
+                        <div id="result-area" class="mt-4"></div>
+                    </div>
+                    
+                    <!-- Result Display Area for Online Mode -->
+                    <div id="result" class="mt-4"></div>
+                </div>
+                
+                <!-- Tutorial Video Column (Right side on desktop, below on mobile) -->
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h3 class="card-title mb-3">How It Works</h3>
+                            <div class="tutorial-video-container">
+                                <video class="img-fluid tutorial-video" controls autoplay muted loop>
+                                    <source src="static/video/tutorial.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dashboard Section (moved below tutorial section) -->
+    <div class="container-fluid dashboard-section py-5 my-4">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-7 mb-4 mb-lg-0">
+                    <h2 class="section-title mb-3">Track Your Plant Health</h2>
+                    <p class="lead mb-4">Our dashboard provides real-time insights into your plants' health. Access vital information including weather details, sensor data, and a field disease heatmap to make informed decisions</p>
+        
+                    <ul class="dashboard-features">
+                        <li><i class="fas fa-history"></i>View current weather conditions</li>
+                        <li><i class="fas fa-chart-line"></i>Monitor sensor data for optimal growth</li>
+                        <li><i class="fas fa-seedling"></i>Analyze field disease heatmap for proactive management</li>
+                    </ul>
+                    
+                </div>
+                <div class="col-lg-5 text-center text-lg-end">
+                    <button id="dashboardAccessBtn" class="btn btn-primary btn-lg dashboard-btn">
+                        <i class="fas fa-chart-line me-2"></i> Access Dashboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Section -->
+    <div class="container mt-5">
+        <h2 class="text-center section-title">Benefits of Plant Disease Detection</h2>
+
+        <!-- Tabs Navigation -->
+        <ul class="nav nav-tabs justify-content-center" id="aboutTabs">
+            <li class="nav-item">
+                <a class="nav-link active text-dark" id="tab1-tab" data-bs-toggle="tab" href="#tab1">Early Detection</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link text-dark" id="tab2-tab" data-bs-toggle="tab" href="#tab2">Advanced Technology</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link text-dark" id="tab3-tab" data-bs-toggle="tab" href="#tab3">Sustainable Farming</a>
+            </li>
+        </ul>
+
+        <!-- Tabs Content -->
+        <div class="tab-content mt-4">
+
+            <!-- Tab 1 -->
+            <div class="tab-pane fade show active" id="tab1">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="image-box">
+                            <img src="static/images/about1.jpg" class="img-fluid" alt="Early Detection 1">
+                            <p>Identify diseases before they spread</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="image-box">
+                            <img src="static/images/about2.jpg" class="img-fluid" alt="Early Detection 2">
+                            <p>Save up to 80% of affected crops</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="image-box">
+                            <img src="static/images/about3.jpg" class="img-fluid" alt="Early Detection 3">
+                            <p>Precision diagnosis within seconds</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2 -->
+            <div class="tab-pane fade" id="tab2">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="image-box">
+                            <img src="static/images/about4.jpg" class="img-fluid" alt="Advanced Tech 1">
+                            <p>Deep learning neural networks</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="image-box">
+                            <img src="static/images/about5.jpg" class="img-fluid" alt="Advanced Tech 2">
+                            <p>95% accuracy in disease identification</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="image-box">
+                            <img src="static/images/about6.jpg" class="img-fluid" alt="Advanced Tech 3">
+                            <p>Works on 30+ crop varieties</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3 -->
+            <div class="tab-pane fade" id="tab3">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="image-box">
+                            <img src="static/images/about7.jpg" class="img-fluid" alt="Sustainable 1">
+                            <p>Reduce pesticide use by 50%</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="image-box">
+                            <img src="static/images/about8.jpg" class="img-fluid" alt="Sustainable 2">
+                            <p>Target treatments precisely</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="image-box">
+                            <img src="static/images/about9.jpg" class="img-fluid" alt="Sustainable 3">
+                            <p>Lower environmental impact</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- FAQ Section -->
+    <div class="container mt-5">
+        <h2 class="text-center section-title">Frequently Asked Questions</h2>
+
+        <div class="accordion mt-4" id="faqAccordion">
+
+            <!-- FAQ 1 -->
+            <div class="accordion-item faq-item">
+                <h2 class="accordion-header" id="faqHeading1">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#faqCollapse1">
+                        What is AI-powered plant disease detection?
+                    </button>
+                </h2>
+                <div id="faqCollapse1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        AI-powered plant disease detection uses advanced neural networks to analyze images of plant leaves, 
+                        identify disease patterns, and provide diagnosis and treatment recommendations with high accuracy. 
+                        The system has been trained on thousands of images of diseased and healthy plants.
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ 2 -->
+            <div class="accordion-item faq-item">
+                <h2 class="accordion-header" id="faqHeading2">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#faqCollapse2">
+                        Which plant diseases can this system detect?
+                    </button>
+                </h2>
+                <div id="faqCollapse2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Our system can detect over 50 diseases across 14 different crop types including tomato, potato, 
+                        apple, corn, rice, wheat, and more. Common detectable diseases include late blight, powdery mildew, 
+                        leaf spots, rusts, bacterial infections, and nutrient deficiencies.
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ 3 -->
+            <div class="accordion-item faq-item">
+                <h2 class="accordion-header" id="faqHeading3">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#faqCollapse3">
+                        How accurate is the disease detection?
+                    </button>
+                </h2>
+                <div id="faqCollapse3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Our AI model achieves 95% accuracy in controlled testing environments with clear images of diseased 
+                        leaves. For best results in real-world conditions, we recommend following our image capture guidelines: 
+                        use good lighting, place leaves on a white background, and ensure disease symptoms are clearly visible.
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ 4 -->
+            <div class="accordion-item faq-item">
+                <h2 class="accordion-header" id="faqHeading4">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#faqCollapse4">
+                        Can I use the system without internet access?
+                    </button>
+                </h2>
+                <div id="faqCollapse4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Yes, our offline mode allows you to use the plant disease detection feature without an internet 
+                        connection. The compact AI model runs locally on your device for basic disease detection. However, 
+                        the full feature set, including detailed treatment recommendations and symptom-based detection, 
+                        requires an internet connection.
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ 5 -->
+            <div class="accordion-item faq-item">
+                <h2 class="accordion-header" id="faqHeading5">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#faqCollapse5">
+                        What information do I receive after detection?
+                    </button>
+                </h2>
+                <div id="faqCollapse5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        After analyzing your plant image, you'll receive a detailed report including the detected disease name, 
+                        confidence level of the diagnosis, disease description, potential causes, recommended treatments, and 
+                        preventive measures. For some common diseases, we also provide links to additional resources.
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ 6 -->
+            <div class="accordion-item faq-item">
+                <h2 class="accordion-header" id="faqHeading6">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#faqCollapse6">
+                        Can I detect multiple diseases at once?
+                    </button>
+                </h2>
+                <div id="faqCollapse6" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Yes, our advanced AI can detect multiple diseases present on a single leaf or plant. The system will 
+                        identify the primary disease with the highest confidence score, along with secondary infections or 
+                        conditions if present. For complex cases, we recommend uploading several images of different affected areas.
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ 7 -->
+            <div class="accordion-item faq-item">
+                <h2 class="accordion-header" id="faqHeading7">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#faqCollapse7">
+                        Is my data kept private?
+                    </button>
+                </h2>
+                <div id="faqCollapse7" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        We take your privacy seriously. Plant images you upload are processed securely and are not shared with 
+                        third parties. We may anonymously use uploaded images to improve our AI model's accuracy, but only with 
+                        your consent. You can opt out of this in your account settings at any time.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Footer Section -->
+    <footer class="footer" id="footer">
+        <div class="container">
+            <div class="row">
+
+                <!-- About Section -->
+                <div class="col-lg-4 col-md-6 footer-about">
+                    <h4>About AgroDx</h4>
+                    <p>AgroDx is a cutting-edge plant disease detection platform that uses artificial intelligence to help 
+                    farmers identify crop diseases early and take appropriate action to protect their harvests.</p>
+                </div>
+
+                <!-- Quick Links -->
+                <div class="col-lg-4 col-md-6 footer-links">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="#">Home</a></li>
+                        <li><a href="#tutorial">Treatment Guide</a></li>
+                        <li><a href="#faqAccordion">FAQ</a></li>
+                    </ul>
+                </div>
+
+                <!-- Contact Info -->
+                <div class="col-lg-4 col-md-12 footer-contact">
+                    <h4>Contact Us</h4>
+                    <p>Email: agrodx.help@gmail.com</p>
+                    <p>Phone: +91 6204299438</p>
+                    <div class="social-icons">
+                        <a href="#"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#"><i class="fab fa-twitter"></i></a>
+                        <a href="#"><i class="fab fa-instagram"></i></a>
+                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
+                    </div>
+                </div>
+
+            </div>
+
+            <hr>
+
+            <!-- Copyright -->
+            <div class="text-center">
+                <p>&copy; 2025 AgroDx. All Rights Reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+
+    <!-- Bootstrap Script -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Script to ensure page loads in English -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if this is the first visit
+            if (!sessionStorage.getItem('userSelectedLanguage')) {
+                // Set default language to English
+                sessionStorage.setItem('userSelectedLanguage', 'en');
+                
+                // After Google Translate has initialized, force to English
+                setTimeout(function() {
+                    const select = document.querySelector('.goog-te-combo');
+                    if (select && select.value !== 'en') {
+                        select.value = 'en';
+                        const event = new Event('change', { bubbles: true });
+                        select.dispatchEvent(event);
+                    }
+                }, 2000);
+            }
+            
+            // Add special handling for English button
+            document.addEventListener('click', function(e) {
+                if (e.target && e.target.closest('a') && e.target.textContent === 'English') {
+                    e.preventDefault();
+                    
+                    // Force reload the page to get original English content
+                    sessionStorage.setItem('userSelectedLanguage', 'en');
+                    window.location.reload();
+                }
+            });
+        });
+    </script>
+
+    <!-- Custom JavaScript -->
+    <script src="static/js/script.js"></script>
+
+    <!-- Script to help debug Google sign-in -->
+    <script>
+        console.log("Firebase authentication setup starting...");
+        
+        // Log current domain for verification
+        console.log("Current domain:", window.location.hostname);
+        console.log("Current origin:", window.location.origin);
+        
+        // Function to check if Firebase is properly initialized
+        function checkFirebaseInitialization() {
+            try {
+                if (firebase.app) {
+                    console.log("Firebase app is initialized");
+                    
+                    if (firebase.auth) {
+                        console.log("Firebase auth is available");
+                    } else {
+                        console.error("Firebase auth is NOT available");
+                    }
+                    
+                    if (firebase.firestore) {
+                        console.log("Firebase firestore is available");
+                    } else {
+                        console.warn("Firebase firestore is NOT available");
+                    }
+                } else {
+                    console.error("Firebase app is NOT properly initialized");
+                }
+            } catch (e) {
+                console.error("Error checking Firebase:", e);
+            }
+        }
+        
+        // Check Firebase initialization when document is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            checkFirebaseInitialization();
+            
+            // Listen for auth state changes to verify they're working
+            firebase.auth().onAuthStateChanged(function(user) {
+                console.log("Auth state changed. User:", user ? user.email : "signed out");
+            });
+        });
+    </script>
+
+    <!-- Firebase Authentication Handler -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check for redirect result first (when coming back from Google redirect)
+            firebase.auth().getRedirectResult()
+                .then((result) => {
+                    if (result && result.user) {
+                        // User successfully signed in with redirect
+                        console.log("Redirect sign-in successful:", result.user.email);
+                        showAlert('success', 'Google sign-in successful!');
+                        closeAllModals();
+                        
+                        // Store user data in Firestore if it's a new user
+                        if (result.additionalUserInfo && result.additionalUserInfo.isNewUser) {
+                            storeUserData(result.user);
+                        }
+                    }
+                }).catch((error) => {
+                    console.error("Redirect result error:", error);
+                    if (error.code && error.code !== 'auth/null-credential') {
+                        // Only show error if it's meaningful
+                        showAlert('danger', 'Google sign-in error: ' + error.message);
+                        
+                        // Check for domain authorization error
+                        if (error.code === 'auth/unauthorized-domain' || 
+                            (error.message && error.message.toLowerCase().includes('domain'))) {
+                            showAlert('danger', 'Domain Error: Add 127.0.0.1 to the OAuth redirect domains in Firebase console → Auth section → Sign in method tab.');
+                        }
+                    }
+                });
+            
+            // Store user data in Firestore
+            function storeUserData(user) {
+                if (!user) return;
+                
+                const userData = {
+                    displayName: user.displayName || '',
+                    email: user.email,
+                    photoURL: user.photoURL || '',
+                    lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+                };
+                
+                // If new user, add creation time
+                if (user.metadata && user.metadata.creationTime) {
+                    userData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                }
+                
+                console.log("Storing user data in Firestore:", userData.email);
+                
+                // Save to Firestore
+                firebase.firestore().collection('users').doc(user.uid)
+                    .set(userData, { merge: true })
+                    .then(() => {
+                        console.log("User data stored successfully");
+                    })
+                    .catch(error => {
+                        console.error("Error storing user data:", error);
+                    });
+            }
+            
+            // Helper function to close all modals
+            function closeAllModals() {
+                const modals = document.querySelectorAll('.modal');
+                modals.forEach(modal => {
+                    const modalInstance = bootstrap.Modal.getInstance(modal);
+                    if (modalInstance) modalInstance.hide();
+                });
+            }
+            
+            // Check if user is authenticated
+            firebase.auth().onAuthStateChanged(function(user) {
+                const authButtons = document.getElementById('authButtons');
+                const userDisplay = document.getElementById('userDisplay');
+                const dashboardBtn = document.getElementById('dashboardBtn');
+                const loginBtn = document.getElementById('loginBtn');
+                const registerBtn = document.getElementById('registerBtn');
+                const logoutBtn = document.getElementById('logoutBtn');
+                
+                // Mobile buttons
+                const mobileDashboardBtn = document.getElementById('mobileDashboardBtn');
+                const mobileLoginBtn = document.getElementById('mobileLoginBtn');
+                const mobileRegisterBtn = document.getElementById('mobileRegisterBtn');
+                const mobileLogoutBtn = document.getElementById('mobileLogoutBtn');
+                
+                if (user) {
+                    // User is signed in
+                    console.log("User is signed in:", user.email);
+                    
+                    // Update last login timestamp in Firestore
+                    firebase.firestore().collection('users').doc(user.uid)
+                        .update({
+                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                        })
+                        .catch(error => {
+                            console.error("Error updating last login:", error);
+                            // If document doesn't exist, create it
+                            if (error.code === 'not-found') {
+                                storeUserData(user);
+                            }
+                        });
+                    
+                    // Update user display
+                    if (userDisplay) {
+                        userDisplay.classList.remove('d-none');
+                        const userNameElement = userDisplay.querySelector('.user-name');
+                        if (userNameElement) {
+                            userNameElement.textContent = user.displayName || user.email;
+                        }
+                    }
+                    
+                    // Update desktop buttons
+                    if (loginBtn) loginBtn.classList.add('d-none');
+                    if (registerBtn) registerBtn.classList.add('d-none');
+                    if (dashboardBtn) dashboardBtn.classList.remove('d-none');
+                    if (logoutBtn) logoutBtn.classList.remove('d-none');
+                    
+                    // Update mobile buttons
+                    if (mobileLoginBtn) mobileLoginBtn.classList.add('d-none');
+                    if (mobileRegisterBtn) mobileRegisterBtn.classList.add('d-none');
+                    if (mobileDashboardBtn) mobileDashboardBtn.classList.remove('d-none');
+                    if (mobileLogoutBtn) mobileLogoutBtn.classList.remove('d-none');
+                    
+                } else {
+                    // User is not signed in
+                    console.log("User is signed out");
+                    
+                    // Update user display
+                    if (userDisplay) {
+                        userDisplay.classList.add('d-none');
+                    }
+                    
+                    // Update desktop buttons
+                    if (loginBtn) loginBtn.classList.remove('d-none');
+                    if (registerBtn) registerBtn.classList.remove('d-none');
+                    if (dashboardBtn) dashboardBtn.classList.add('d-none');
+                    if (logoutBtn) logoutBtn.classList.add('d-none');
+                    
+                    // Update mobile buttons
+                    if (mobileLoginBtn) mobileLoginBtn.classList.remove('d-none');
+                    if (mobileRegisterBtn) mobileRegisterBtn.classList.remove('d-none');
+                    if (mobileDashboardBtn) mobileDashboardBtn.classList.add('d-none');
+                    if (mobileLogoutBtn) mobileLogoutBtn.classList.add('d-none');
+                }
+            });
+            
+            // Continue with the authentication handlers
+            
+            // Login form submission
+            document.getElementById('loginForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                
+                firebase.auth().signInWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        // Close modal
+                        closeAllModals();
+                        // Success message
+                        showAlert('success', 'Logged in successfully!');
+                    })
+                    .catch((error) => {
+                        showAlert('danger', error.message);
+                    });
+            });
+            
+            // Registration form submission
+            document.getElementById('registerForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const name = document.getElementById('registerName').value;
+                const email = document.getElementById('registerEmail').value;
+                const password = document.getElementById('registerPassword').value;
+                
+                firebase.auth().createUserWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        // Update profile with name
+                        return userCredential.user.updateProfile({
+                            displayName: name
+                        }).then(() => {
+                            // Close modal
+                            closeAllModals();
+                            // Success message
+                            showAlert('success', 'Account created successfully!');
+                        });
+                    })
+                    .catch((error) => {
+                        showAlert('danger', error.message);
+                    });
+            });
+            
+            // Google Sign In (with debugging for troubleshooting)
+            document.getElementById('googleSignIn')?.addEventListener('click', function() {
+                console.log("Google sign-in button clicked");
+                
+                try {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    
+                    // Add login hint and select account prompt
+                    provider.setCustomParameters({
+                        'prompt': 'select_account'
+                    });
+                    
+                    console.log("Google provider created");
+                    
+                    // Disable button during authentication
+                    const btn = document.getElementById('googleSignIn');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Signing in...';
+                    }
+                    
+                    // First set persistence
+                    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+                        .then(() => {
+                            console.log("Persistence set to LOCAL");
+                            
+                            // Try popup first
+                            return firebase.auth().signInWithPopup(provider)
+                                .then((result) => {
+                                    console.log("Popup sign-in successful");
+                                    
+                                    // Success message
+                                    showAlert('success', 'Logged in with Google successfully!');
+                                    
+                                    // Store user data in Firestore if it's a new user
+                                    if (result.additionalUserInfo && result.additionalUserInfo.isNewUser) {
+                                        storeUserData(result.user);
+                                    }
+                                    
+                                    // Close modal
+                                    closeAllModals();
+                                })
+                                .catch((error) => {
+                                    console.error("Popup sign-in error:", error);
+                                    
+                                    // Reset button state
+                                    if (btn) {
+                                        btn.disabled = false;
+                                        btn.innerHTML = '<i class="fab fa-google me-2"></i> Sign in with Google';
+                                    }
+                                    
+                                    // Check for domain authorization error
+                                    if (error.code === 'auth/unauthorized-domain' || 
+                                        (error.message && error.message.toLowerCase().includes('domain'))) {
+                                        showAlert('danger', 'Domain Error: Add 127.0.0.1 to the OAuth redirect domains in Firebase console → Auth section → Sign in method tab.');
+                                        return;
+                                    }
+                                    
+                                    // If popup blocked or closed, try redirect method
+                                    if (error.code === 'auth/popup-blocked' || 
+                                        error.code === 'auth/popup-closed-by-user' ||
+                                        error.code === 'auth/cancelled-popup-request') {
+                                        
+                                        showAlert('warning', 'Popup was blocked. Trying redirect method...');
+                                        
+                                        // Short delay before redirect
+                                        setTimeout(() => {
+                                            console.log("Attempting redirect sign-in");
+                                            return firebase.auth().signInWithRedirect(provider);
+                                        }, 1000);
+                                    } else {
+                                        showAlert('danger', error.message);
+                                    }
+                                });
+                        })
+                        .catch(error => {
+                            console.error("Error setting persistence:", error);
+                            
+                            // Reset button state
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.innerHTML = '<i class="fab fa-google me-2"></i> Sign in with Google';
+                            }
+                            
+                            showAlert('danger', 'Authentication error: ' + error.message);
+                        });
+                } catch (e) {
+                    console.error("Exception during Google sign-in setup:", e);
+                    showAlert('danger', 'Error: ' + e.message);
+                }
+            });
+            
+            // Google Sign Up (same approach)
+            document.getElementById('googleSignUp')?.addEventListener('click', function() {
+                console.log("Google sign-up button clicked");
+                
+                try {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    
+                    // Add login hint and select account prompt
+                    provider.setCustomParameters({
+                        'prompt': 'select_account'
+                    });
+                    
+                    console.log("Google provider created");
+                    
+                    // Disable button during authentication
+                    const btn = document.getElementById('googleSignUp');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Signing up...';
+                    }
+                    
+                    // First set persistence
+                    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+                        .then(() => {
+                            console.log("Persistence set to LOCAL");
+                            
+                            // Try popup first
+                            return firebase.auth().signInWithPopup(provider)
+                                .then((result) => {
+                                    console.log("Popup sign-up successful");
+                                    
+                                    // Success message
+                                    showAlert('success', 'Account created with Google successfully!');
+                                    
+                                    // Store user data in Firestore if it's a new user
+                                    if (result.additionalUserInfo && result.additionalUserInfo.isNewUser) {
+                                        storeUserData(result.user);
+                                    }
+                                    
+                                    // Close modal
+                                    closeAllModals();
+                                })
+                                .catch((error) => {
+                                    console.error("Popup sign-up error:", error);
+                                    
+                                    // Reset button state
+                                    if (btn) {
+                                        btn.disabled = false;
+                                        btn.innerHTML = '<i class="fab fa-google me-2"></i> Sign up with Google';
+                                    }
+                                    
+                                    // Check for domain authorization error
+                                    if (error.code === 'auth/unauthorized-domain' || 
+                                        (error.message && error.message.toLowerCase().includes('domain'))) {
+                                        showAlert('danger', 'Domain Error: Add 127.0.0.1 to the OAuth redirect domains in Firebase console → Auth section → Sign in method tab.');
+                                        return;
+                                    }
+                                    
+                                    // If popup blocked or closed, try redirect method
+                                    if (error.code === 'auth/popup-blocked' || 
+                                        error.code === 'auth/popup-closed-by-user' ||
+                                        error.code === 'auth/cancelled-popup-request') {
+                                        
+                                        showAlert('warning', 'Popup was blocked. Trying redirect method...');
+                                        
+                                        // Short delay before redirect
+                                        setTimeout(() => {
+                                            console.log("Attempting redirect sign-up");
+                                            return firebase.auth().signInWithRedirect(provider);
+                                        }, 1000);
+                                    } else {
+                                        showAlert('danger', error.message);
+                                    }
+                                });
+                        })
+                        .catch(error => {
+                            console.error("Error setting persistence:", error);
+                            
+                            // Reset button state
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.innerHTML = '<i class="fab fa-google me-2"></i> Sign up with Google';
+                            }
+                            
+                            showAlert('danger', 'Authentication error: ' + error.message);
+                        });
+                } catch (e) {
+                    console.error("Exception during Google sign-up setup:", e);
+                    showAlert('danger', 'Error: ' + e.message);
+                }
+            });
+            
+            // Logout button
+            document.getElementById('logoutBtn')?.addEventListener('click', function() {
+                firebase.auth().signOut()
+                    .then(() => {
+                        showAlert('success', 'Logged out successfully!');
+                    })
+                    .catch((error) => {
+                        showAlert('danger', error.message);
+                    });
+            });
+            
+            // Mobile Logout button
+            document.getElementById('mobileLogoutBtn')?.addEventListener('click', function() {
+                firebase.auth().signOut()
+                    .then(() => {
+                        showAlert('success', 'Logged out successfully!');
+                    })
+                    .catch((error) => {
+                        showAlert('danger', error.message);
+                    });
+            });
+            
+            // Helper function to show alerts
+            function showAlert(type, message) {
+                const alertContainer = document.getElementById('alert-container');
+                if (alertContainer) {
+                    const alertHTML = `
+                        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                            ${message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    `;
+                    alertContainer.innerHTML = alertHTML;
+                    
+                    // Auto-dismiss after 5 seconds
+                    setTimeout(() => {
+                        const alert = alertContainer.querySelector('.alert');
+                        if (alert) {
+                            const bsAlert = new bootstrap.Alert(alert);
+                            bsAlert.close();
+                        }
+                    }, 5000);
+                }
+            }
+        });
+    </script>
+
+    <!-- Hidden element for Google Translate -->
+    <div id="google_translate_element" style="display: none;"></div>
+
+    <!-- Dashboard redirect script -->
+    <script>
+        // Check for 'next' parameter in URL and redirect if needed
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const nextPath = urlParams.get('next');
+            
+            if (nextPath) {
+                // Make the dashboard button work directly
+                const dashboardBtn = document.getElementById('dashboardBtn');
+                if (dashboardBtn) {
+                    dashboardBtn.href = nextPath;
+                    // Don't remove the d-none class here, as auth.js handles visibility based on login state
+                }
+            } else {
+                // If no next parameter, set default dashboard link
+                const dashboardBtn = document.getElementById('dashboardBtn');
+                if (dashboardBtn) {
+                    dashboardBtn.href = "{{ url_for('dashboard.index') }}";
+                    // Don't remove the d-none class here, as auth.js handles visibility based on login state
+                }
+            }
+        });
+    </script>
+
+    <!-- Styles for tabs, image boxes and responsive layout -->
+    <style>
+        /* Image box styles for all devices */
+        .image-box {
+            margin-bottom: 1.5rem;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+        
+        .image-box:hover {
+            transform: translateY(-5px);
+        }
+        
+        .image-box img {
+            width: 100%;
+            height: 220px; /* Fixed height on all devices */
+            object-fit: cover; /* Maintain aspect ratio while filling the space */
+            margin-bottom: 0;
+        }
+        
+        .image-box p {
+            padding: 1rem;
+            margin-bottom: 0;
+            background-color: white;
+            text-align: center;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Responsive tabs and images adjustments for mobile */
+        @media (max-width: 767px) {
+            .nav-tabs {
+                flex-wrap: wrap;
+                border-bottom: none;
+            }
+            
+            .nav-tabs .nav-item {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+            
+            .nav-tabs .nav-link {
+                border: 1px solid rgba(0,0,0,.125);
+                border-radius: 0.25rem;
+                margin-right: 0;
+                text-align: center;
+            }
+            
+            .nav-tabs .nav-link.active {
+                background-color: #198754;
+                color: white;
+                border-color: #198754;
+            }
+            
+            /* Make tab content more mobile-friendly */
+            .tab-pane .row {
+                flex-direction: column;
+            }
+            
+            .tab-pane .col-md-4 {
+                margin-bottom: 1.5rem;
+            }
+            
+            .image-box img {
+                height: 200px; /* Slightly smaller on mobile */
+            }
+            
+            .tutorial-text {
+                padding-right: 0;
+                margin-bottom: 2rem;
+            }
+            
+            .tutorial-image-container {
+                margin-bottom: 1rem;
+            }
+        }
+    </style>
+
+    <!-- Mobile navigation styles -->
+    <style>
+        /* Mobile navigation styles */
+        .mobile-nav-buttons {
+            display: flex;
+            align-items: center;
+        }
+        
+        .mobile-nav-buttons .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            border-radius: 0.2rem;
+        }
+        
+        @media (max-width: 991.98px) {
+            .navbar-brand {
+                font-size: 1.25rem;
+                margin-right: 0;
+            }
+            
+            .navbar-toggler {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.875rem;
+                margin-left: 0.5rem;
+            }
+            
+            .mobile-nav-buttons .dropdown-menu {
+                min-width: auto;
+                left: auto;
+                right: 0;
+            }
+        }
+    </style>
+
+    <!-- Styles for dashboard section -->
+    <style>
+        .dashboard-section {
+            background-color: #f8fafb;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        
+        .dashboard-features {
+            list-style-type: none;
+            padding-left: 0;
+            margin-bottom: 1.5rem;
+        }
+        
+        .dashboard-features li {
+            margin-bottom: 0.75rem;
+            padding-left: 1.75rem;
+            position: relative;
+        }
+        
+        .dashboard-features li i {
+            position: absolute;
+            left: 0;
+            top: 3px;
+            color: #198754;
+            font-size: 1.1rem;
+        }
+        
+        .dashboard-btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 30px;
+            font-weight: 600;
+            box-shadow: 0 4px 10px rgba(25, 135, 84, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .dashboard-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(25, 135, 84, 0.3);
+        }
+        
+        @media (max-width: 767px) {
+            .dashboard-section {
+                text-align: center;
+            }
+            
+            .dashboard-features li {
+                text-align: left;
+                max-width: 300px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+        }
+    </style>
+
+    <!-- Dashboard access functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dashboardAccessBtn = document.getElementById('dashboardAccessBtn');
+            let customMessageAdded = false;
+            
+            if (dashboardAccessBtn) {
+                dashboardAccessBtn.addEventListener('click', function() {
+                    console.log("Dashboard access button clicked");
+                    
+                    // Check if user is logged in
+                    const user = firebase.auth().currentUser;
+                    
+                    if (user) {
+                        // User is logged in, redirect to dashboard
+                        console.log("User is logged in. Redirecting to dashboard...");
+                        window.location.href = "{{ url_for('dashboard.index') }}";
+                    } else {
+                        // User is not logged in, show login modal
+                        console.log("User is not logged in. Showing login modal...");
+                        
+                        // Change the title only if not already changed
+                        const loginModalTitle = document.getElementById('loginModalLabel');
+                        if (loginModalTitle && !customMessageAdded) {
+                            loginModalTitle.innerHTML = 'Login to Access Dashboard <i class="fas fa-chart-line"></i>';
+                        }
+                        
+                        // Add custom message in the modal body if not already added
+                        if (!customMessageAdded) {
+                            const loginMessageArea = document.querySelector('#loginModal .modal-body > .text-center');
+                            if (loginMessageArea) {
+                                loginMessageArea.insertAdjacentHTML('beforebegin', 
+                                    '<div id="dashboard-login-msg" class="alert alert-info mb-3">' + 
+                                    'Please log in to access your personalized dashboard.' +
+                                    '</div>'
+                                );
+                                customMessageAdded = true;
+                                
+                                // Add listener to remove custom message when modal is hidden
+                                const loginModal = document.getElementById('loginModal');
+                                if (loginModal) {
+                                    loginModal.addEventListener('hidden.bs.modal', function() {
+                                        const msgElement = document.getElementById('dashboard-login-msg');
+                                        if (msgElement) {
+                                            msgElement.remove();
+                                            customMessageAdded = false;
+                                            
+                                            // Reset the title
+                                            if (loginModalTitle) {
+                                                loginModalTitle.textContent = 'Login';
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                        
+                        // Show the modal
+                        const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+                        loginModal.show();
+                    }
+                });
+            }
+        });
+    </script>
+
+    <style>
+        /* Base Styling */
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* Mobile margins for phone mode */
+        @media (max-width: 576px) {
+            .container {
+                padding-left: 20px !important;
+                padding-right: 20px !important;
+            }
+            
+            .tutorial-section, .dashboard-section, .footer {
+                padding-left: 20px !important;
+                padding-right: 20px !important;
+            }
+            
+            .carousel-caption {
+                padding-left: 15px !important;
+                padding-right: 15px !important;
+            }
+        }
+
+        /* Hero Carousel */
+        .carousel-item {
+            height: 70vh;
+            min-height: 400px;
+            background: no-repeat center center;
+            background-size: cover;
+            position: relative;
+        }
+    </style>
+
+    <script>
+        // Add loading indicators when forms are submitted
+        document.addEventListener('DOMContentLoaded', function() {
+            // Image upload form
+            const imageForm = document.getElementById('image-upload-form');
+            const onlineImageLoading = document.getElementById('online-image-loading');
+            const detectImageBtn = document.getElementById('detect-image-btn');
+            
+            if (imageForm && onlineImageLoading && detectImageBtn) {
+                imageForm.addEventListener('submit', function() {
+                    onlineImageLoading.classList.remove('d-none');
+                    detectImageBtn.disabled = true;
+                });
+            }
+            
+            // Text symptoms form
+            const symptomsForm = document.getElementById('symptoms-form');
+            const textLoading = document.getElementById('text-loading');
+            const diagnoseTextBtn = document.getElementById('diagnose-text-btn');
+            
+            if (symptomsForm && textLoading && diagnoseTextBtn) {
+                symptomsForm.addEventListener('submit', function() {
+                    textLoading.classList.remove('d-none');
+                    diagnoseTextBtn.disabled = true;
+                });
+            }
+            
+            // Offline detection
+            const detectOfflineBtn = document.getElementById('detect-offline');
+            const offlineLoading = document.getElementById('offline-loading');
+            
+            if (detectOfflineBtn && offlineLoading) {
+                detectOfflineBtn.addEventListener('click', function() {
+                    offlineLoading.classList.remove('d-none');
+                    detectOfflineBtn.disabled = true;
+                    // Re-enable after 10 seconds in case of error
+                    setTimeout(() => {
+                        if (offlineLoading.classList.contains('d-none') === false) {
+                            offlineLoading.classList.add('d-none');
+                            detectOfflineBtn.disabled = false;
+                        }
+                    }, 10000);
+                });
+            }
+        });
+    </script>
+
+    <!-- Chatbot Button -->
+    <button id="chatbotButton" style="position: fixed; bottom: 30px; left: 30px; width: 60px; height: 60px; border-radius: 50%; background-color: #4CAF50; color: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); cursor: pointer; z-index: 9999; transition: all 0.3s ease; border: none; font-size: 24px;">
+        <i class="fas fa-robot"></i>
+    </button>
+
+    <!-- Chatbot Container -->
+    <div id="chatbotContainer" style="display: none; position: fixed; bottom: 100px; left: 30px; width: 350px; height: 500px; background-color: white; border-radius: 10px; box-shadow: 0 0 20px rgba(0, 0, 0, 0.2); z-index: 10000; overflow: hidden; flex-direction: column;">
+        <div style="background-color: #4CAF50; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0;"><i class="fas fa-seedling mr-2"></i> AgroDx Assistant</h5>
+            <button id="closeChatbot" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="chatMessages" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="align-self: flex-start; background-color: #E8F5E9; padding: 10px 15px; border-radius: 15px; border-bottom-left-radius: 5px; max-width: 80%;">
+                Hello! I'm your AgroDx Plant Disease Assistant. How can I help you with plant disease detection today?
+            </div>
+        </div>
+        <div id="chatInputArea" style="padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px;">
+            <input id="messageInput" type="text" placeholder="Type your message here..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none;">
+            <button id="voiceInput" style="background-color: #4CAF50; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <i class="fas fa-microphone"></i>
+            </button>
+            <button id="sendMessage" style="background-color: #4CAF50; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+        <div id="voiceStatus" style="display: none; text-align: center; padding: 5px; background-color: #f8f9fa; font-size: 12px; color: #666;">Listening...</div>
+    </div>
+
+    <!-- Chatbot Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatbotButton = document.getElementById('chatbotButton');
+            const chatbotContainer = document.getElementById('chatbotContainer');
+            const closeChatbot = document.getElementById('closeChatbot');
+            const messageInput = document.getElementById('messageInput');
+            const sendMessage = document.getElementById('sendMessage');
+            const voiceInput = document.getElementById('voiceInput');
+            const voiceStatus = document.getElementById('voiceStatus');
+            const chatMessages = document.getElementById('chatMessages');
+            
+            // Generate a unique session ID for this chat session
+            const sessionId = 'chat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            let chatHistory = [];
+            
+            // Speech recognition setup
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            let recognition;
+            
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.lang = 'en-US';
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
+                
+                recognition.onstart = function() {
+                    voiceStatus.style.display = 'block';
+                    voiceStatus.textContent = 'Listening...';
+                    voiceInput.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    voiceInput.disabled = true;
+                };
+                
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript;
+                    messageInput.value = transcript;
+                    voiceStatus.textContent = 'Voice captured!';
+                    setTimeout(() => {
+                        voiceStatus.style.display = 'none';
+                        handleMessage();
+                    }, 500);
+                };
+                
+                recognition.onerror = function(event) {
+                    voiceStatus.textContent = 'Error: ' + event.error;
+                    setTimeout(() => {
+                        voiceStatus.style.display = 'none';
+                    }, 2000);
+                    voiceInput.innerHTML = '<i class="fas fa-microphone"></i>';
+                    voiceInput.disabled = false;
+                };
+                
+                recognition.onend = function() {
+                    voiceInput.innerHTML = '<i class="fas fa-microphone"></i>';
+                    voiceInput.disabled = false;
+                };
+                
+                voiceInput.addEventListener('click', function() {
+                    recognition.start();
+                });
+            } else {
+                voiceInput.style.display = 'none';
+                console.log('Speech recognition not supported in this browser');
+            }
+            
+            // Open chatbot
+            chatbotButton.addEventListener('click', function() {
+                chatbotContainer.style.display = 'flex';
+                messageInput.focus();
+            });
+            
+            // Close chatbot
+            closeChatbot.addEventListener('click', function() {
+                chatbotContainer.style.display = 'none';
+                // Stop recognition if active
+                if (recognition && voiceInput.disabled) {
+                    recognition.stop();
+                }
+            });
+            
+            // Send message on Enter key
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && messageInput.value.trim()) {
+                    handleMessage();
+                }
+            });
+            
+            // Send message on button click
+            sendMessage.addEventListener('click', function() {
+                if (messageInput.value.trim()) {
+                    handleMessage();
+                }
+            });
+            
+            function handleMessage() {
+                const userMessage = messageInput.value.trim();
+                
+                // Add user message to chat
+                addMessage(userMessage, 'user');
+                
+                // Add to local chat history
+                chatHistory.push({type: 'user', content: userMessage});
+                
+                // Clear input
+                messageInput.value = '';
+                
+                // Disable buttons and add loading indicator
+                sendMessage.disabled = true;
+                voiceInput.disabled = true;
+                sendMessage.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                
+                // Add a typing indicator to the chat
+                const typingIndicator = document.createElement('div');
+                typingIndicator.className = 'typing-indicator';
+                typingIndicator.style.cssText = 'align-self: flex-start; background-color: #E8F5E9; padding: 10px 15px; border-radius: 15px; border-bottom-left-radius: 5px; max-width: 80%;';
+                typingIndicator.innerHTML = 'AgroDx is typing<span>.</span><span>.</span><span>.</span>';
+                chatMessages.appendChild(typingIndicator);
+                
+                // Scroll to show the typing indicator
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Send to backend and get response
+                fetch('/api/chatbot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        message: userMessage,
+                        concise: true,
+                        session_id: sessionId
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Remove typing indicator
+                    if (typingIndicator && typingIndicator.parentNode) {
+                        typingIndicator.parentNode.removeChild(typingIndicator);
+                    }
+                    
+                    // Re-enable buttons
+                    sendMessage.disabled = false;
+                    voiceInput.disabled = false;
+                    sendMessage.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                    
+                    if (data.success) {
+                        // Add response to chat
+                        addMessage(data.response, 'bot');
+                        
+                        // Add to local chat history
+                        chatHistory.push({type: 'assistant', content: data.response});
+                        
+                        // Limit local history length
+                        if (chatHistory.length > 10) {
+                            chatHistory = chatHistory.slice(-10);
+                        }
+                    } else {
+                        addMessage('Sorry, I encountered an error. Please try again.', 'bot');
+                    }
+                })
+                .catch(error => {
+                    // Remove typing indicator
+                    if (typingIndicator && typingIndicator.parentNode) {
+                        typingIndicator.parentNode.removeChild(typingIndicator);
+                    }
+                    
+                    // Re-enable buttons
+                    sendMessage.disabled = false;
+                    voiceInput.disabled = false;
+                    sendMessage.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                    
+                    console.error('Error:', error);
+                    addMessage('Sorry, I encountered a connection error. Please try again.', 'bot');
+                });
+            }
+            
+            function addMessage(text, sender) {
+                const messageDiv = document.createElement('div');
+                
+                if (sender === 'user') {
+                    messageDiv.style.cssText = 'align-self: flex-end; background-color: #E3F2FD; padding: 10px 15px; border-radius: 15px; border-bottom-right-radius: 5px; max-width: 80%;';
+                } else {
+                    messageDiv.style.cssText = 'align-self: flex-start; background-color: #E8F5E9; padding: 10px 15px; border-radius: 15px; border-bottom-left-radius: 5px; max-width: 80%;';
+                }
+                
+                messageDiv.textContent = text;
+                chatMessages.appendChild(messageDiv);
+                
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        });
+    </script>
+
+</body>
+
+</html>
