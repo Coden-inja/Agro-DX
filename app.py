@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, flash, jsonify, send_from_directory, send_file, url_for
+from flask import Flask,Blueprint, render_template, request, redirect, flash, jsonify, send_from_directory, send_file, url_for
 import os
 import mimetypes  # Add mimetype support for proper content type headers
 
@@ -20,6 +20,7 @@ from flask_login import LoginManager, login_required, current_user
 from models import db, User, Field, Sensor, SensorReading, DiseaseDetection
 from sensor_utils import get_weather_data, get_location_name, process_sensor_data, get_field_health_status, generate_alert
 from config import Config
+from google import genai
 from werkzeug.utils import secure_filename
 import traceback
 from datetime import datetime, timedelta
@@ -658,6 +659,53 @@ def get_field_weather(field_id):
         'weather': weather_data
     })
 
+def get_weather_data_api(field_id):
+    """API endpoint to get weather data for a specific field"""
+    try:
+        # Get field data from database
+        field = {"id": field_id, "name": "Field " + field_id}
+        if field_id == "1":
+            field["name"] = "Rice Field - North"
+            latitude = 22.5726
+            longitude = 88.3639
+            location = "Kolkata, West Bengal"
+        elif field_id == "2":
+            field["name"] = "Wheat Field - East"
+            latitude = 19.0760
+            longitude = 72.8777
+            location = "Mumbai, Maharashtra"
+        elif field_id == "3":
+            field["name"] = "Vegetable Garden"
+            latitude = 28.7041
+            longitude = 77.1025
+            location = "Delhi, NCR"
+        else:
+            # Default to Kolkata
+            latitude = 22.5726
+            longitude = 88.3639
+            location = "Unknown Location"
+
+        # Import the weather data function
+        from sensor_utils import get_weather_data
+        
+        # Get weather data
+        weather_data = get_weather_data(latitude, longitude)
+        
+        return jsonify({
+            'success': True,
+            'field_id': field_id,
+            'field_name': field["name"],
+            'location': location,
+            'weather': weather_data
+        })
+    except Exception as e:
+        app.logger.error(f"Error getting weather data: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to retrieve weather data',
+            'details': str(e)
+        }), 500
+
 # API endpoint for field sensor data
 @app.route('/api/sensors/<field_id>')
 def get_field_sensors(field_id):
@@ -730,6 +778,98 @@ def get_field_sensors(field_id):
         'health_status': get_field_health_status(field_id)
     })
 
+def get_sensor_data_api(field_id):
+    """API endpoint to get sensor data for a specific field"""
+    try:
+        # In a real app, we would get actual sensor data from the database
+        # For demo, generate mock sensor data
+        from datetime import datetime, timedelta
+        import random
+        
+        # Get field data
+        field = {"id": field_id, "name": "Field " + field_id}
+        if field_id == "1":
+            field["name"] = "Rice Field - North"
+        elif field_id == "2":
+            field["name"] = "Wheat Field - East"
+        elif field_id == "3":
+            field["name"] = "Vegetable Garden"
+        
+        # Generate mock sensors based on field
+        sensors = []
+        sensor_types = [
+            {"name": "Soil Moisture", "unit": "%", "status": "good"},
+            {"name": "Temperature", "unit": "°C", "status": "warning"},
+            {"name": "Humidity", "unit": "%", "status": "good"},
+            {"name": "Soil pH", "unit": "pH", "status": "good"}
+        ]
+        
+        for i, sensor_type in enumerate(sensor_types):
+            # Generate realistic values for each sensor type
+            value = None
+            if sensor_type["name"] == "Soil Moisture":
+                value = random.uniform(55, 75)  # 55-75% is good for most crops
+            elif sensor_type["name"] == "Temperature":
+                if field_id == "1":  # Rice field
+                    value = random.uniform(24, 35)  # Higher for rice fields
+                elif field_id == "2":  # Wheat field
+                    value = random.uniform(18, 25)  # Lower for wheat
+                else:
+                    value = random.uniform(20, 30)  # Moderate for garden
+            elif sensor_type["name"] == "Humidity":
+                value = random.uniform(50, 90)
+            elif sensor_type["name"] == "Soil pH":
+                value = random.uniform(5.5, 7.5)
+                
+            # Determine status based on value
+            status = "good"
+            if sensor_type["name"] == "Temperature" and value > 32:
+                status = "warning"
+            elif sensor_type["name"] == "Soil Moisture" and value < 60:
+                status = "warning"
+            elif sensor_type["name"] == "Soil pH" and (value < 6.0 or value > 7.0):
+                status = "warning"
+                
+            sensors.append({
+                "id": f"{field_id}-{i+1}",
+                "name": f"{sensor_type['name']} Sensor",
+                "type": sensor_type["name"].lower().replace(" ", "_"),
+                "value": round(value, 1),
+                "unit": sensor_type["unit"],
+                "status": status,
+                "field_id": field_id,
+                "timestamp": (datetime.now() - timedelta(minutes=random.randint(5, 60))).isoformat()
+            })
+            
+        # Get field health status based on sensors
+        health_status = {}
+        warning_count = sum(1 for sensor in sensors if sensor["status"] == "warning")
+        danger_count = sum(1 for sensor in sensors if sensor["status"] == "danger")
+        
+        if danger_count > 0:
+            health_status = {"label": "Poor", "color": "danger", "icon": "exclamation-circle-fill"}
+        elif warning_count > 1:
+            health_status = {"label": "Fair", "color": "warning", "icon": "exclamation-triangle-fill"}
+        elif warning_count == 1:
+            health_status = {"label": "Good", "color": "info", "icon": "info-circle-fill"}
+        else:
+            health_status = {"label": "Excellent", "color": "success", "icon": "check-circle-fill"}
+        
+        return jsonify({
+            'success': True,
+            'field_id': field_id,
+            'field_name': field["name"],
+            'sensors': sensors,
+            'health_status': health_status
+        })
+    except Exception as e:
+        app.logger.error(f"Error getting sensor data: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to retrieve sensor data',
+            'details': str(e)
+        }), 500
+
 # API endpoint for disease tracking
 @app.route('/api/diseases/<field_id>')
 def get_field_diseases(field_id):
@@ -796,6 +936,121 @@ def get_field_diseases(field_id):
         'detections': disease_data,
         'stats': stats
     })
+
+def get_disease_data_api(field_id):
+    """API endpoint to get disease detection data for a specific field"""
+    try:
+        # In a real app, we would get actual disease data from the database
+        # For demo, generate mock disease data
+        from datetime import datetime, timedelta
+        import random
+        
+        # Get field data
+        field = {"id": field_id, "name": "Field " + field_id}
+        if field_id == "1":
+            field["name"] = "Rice Field - North"
+            latitude = 22.5726
+            longitude = 88.3639
+            diseases = ["Rice_brown_spot", "Rice_Leaf_blight"]
+        elif field_id == "2":
+            field["name"] = "Wheat Field - East"
+            latitude = 19.0760
+            longitude = 72.8777
+            diseases = ["Wheat___Brown_Rust", "Wheat___Yellow_Rust", "Wheat___Healthy"]
+        elif field_id == "3":
+            field["name"] = "Vegetable Garden"
+            latitude = 28.7041
+            longitude = 77.1025
+            diseases = ["Tomato___Late_blight", "Tomato___Healthy", "Potato___Late_blight"]
+        else:
+            latitude = 22.5726
+            longitude = 88.3639
+            diseases = ["Healthy", "Unknown"]
+        
+        # Generate mock detections with realistic variations
+        detections = []
+        total_count = random.randint(3, 8)  # Random number of detections
+        
+        for i in range(total_count):
+            # Select a random disease
+            disease = random.choice(diseases)
+            
+            # Determine status based on detection time
+            days_ago = random.randint(1, 30)
+            detection_time = datetime.now() - timedelta(days=days_ago)
+            
+            status = "detected"
+            if days_ago < 5:
+                status = "detected"
+            elif days_ago < 15:
+                status = "monitoring"
+            elif days_ago < 25:
+                status = "treated"
+            else:
+                status = "resolved"
+                
+            # Randomize coordinates within field boundary
+            lat_offset = random.uniform(-0.01, 0.01)
+            lng_offset = random.uniform(-0.01, 0.01)
+            
+            # Add detection
+            detections.append({
+                "id": f"{field_id}-disease-{i+1}",
+                "field_id": field_id,
+                "disease_name": disease,
+                "confidence": random.uniform(0.75, 0.98),
+                "status": status,
+                "detected_at": detection_time.isoformat(),
+                "latitude": latitude + lat_offset,
+                "longitude": longitude + lng_offset
+            })
+        
+        # Sort by detection time (newest first)
+        detections.sort(key=lambda x: x["detected_at"], reverse=True)
+        
+        # Calculate statistics
+        stats = {
+            "total": len(detections),
+            "active": sum(1 for d in detections if d["status"] in ["detected", "monitoring"]),
+            "treated": sum(1 for d in detections if d["status"] == "treated"),
+            "resolved": sum(1 for d in detections if d["status"] == "resolved")
+        }
+        
+        return jsonify({
+            'success': True,
+            'field_id': field_id,
+            'field_name': field["name"],
+            'detections': detections,
+            'stats': stats
+        })
+    except Exception as e:
+        app.logger.error(f"Error getting disease data: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to retrieve disease data',
+            'details': str(e)
+        }), 500
+    
+
+# Direct dashboard access for testing purposes
+@app.route('/test-dashboard')
+def test_dashboard():
+    """Direct access to dashboard template for testing"""
+    # Use hardcoded Firebase configuration directly
+    firebase_config = {
+        'api_key': FIREBASE_CONFIG['apiKey'],
+        'auth_domain': FIREBASE_CONFIG['authDomain'],
+        'project_id': FIREBASE_CONFIG['projectId'],
+        'storage_bucket': FIREBASE_CONFIG['storageBucket'],
+        'messaging_sender_id': FIREBASE_CONFIG['messagingSenderId'],
+        'app_id': FIREBASE_CONFIG['appId'],
+        'database_url': FIREBASE_CONFIG['databaseURL']
+    }
+    
+    # Add a flag to indicate direct access (bypassing login)
+    return render_template('dashboard.html', 
+                          firebase_config=firebase_config,
+                          direct_access=True)
 
 # API endpoint for weather data fetching (add this after existing weather-related endpoints)
 @app.route('/api/weather-data')
@@ -1040,6 +1295,277 @@ def test_location_weather():
 def test_normalization():
     """Test page for disease name normalization"""
     return render_template('test-normalization.html')
+
+# Mock weather API endpoint
+@app.route('/api/weather/<int:field_id>')
+def weather_api(field_id):
+    """API endpoint for weather data"""
+    try:
+        # Create location-specific mock weather data based on field ID
+        locations = {
+            1: "Kolkata, West Bengal",
+            2: "Mumbai, Maharashtra",
+            3: "Delhi, NCR"
+        }
+        
+        # Get current hour to determine temperature pattern
+        current_hour = datetime.now().hour
+        
+        # Vary base temperature based on field ID
+        base_temp = 24.5 + (field_id * 2)
+        
+        # Create a realistic 24-hour temperature forecast
+        forecast = []
+        for i in range(1, 25):  # Full 24 hours
+            hour = (current_hour + i) % 24  # Hour of day (0-23)
+            
+            # Temperature variation follows a sine curve to simulate day/night cycle
+            # Lowest at around 4am, highest at around 2pm
+            temp_variation = 5 * math.sin(math.pi * ((hour - 4) % 24) / 12)
+            
+            # Add some randomness
+            random_factor = random.uniform(-0.5, 0.5)
+            
+            # Calculate temperature for this hour
+            temp = base_temp + temp_variation + random_factor
+            
+            # Determine icon based on time of day and field
+            if 6 <= hour < 18:  # Daytime
+                icons = ['01d', '02d', '03d', '04d', '10d']  # Day icons
+            else:  # Nighttime
+                icons = ['01n', '02n', '03n', '04n', '10n']  # Night icons
+                
+            # Select icon with some variation based on field_id
+            icon_index = (field_id + i) % len(icons)
+            
+            forecast.append({
+                'time': (datetime.now() + timedelta(hours=i)).isoformat(),
+                'temp': round(temp, 1),
+                'icon': icons[icon_index]
+            })
+        
+        weather_data = {
+            'success': True,
+            'field_name': f'Field {field_id}',
+            'location': locations.get(field_id, 'Sample Location'),
+            'weather': {
+                'temp': base_temp,
+                'humidity': 55 + (field_id * 5),
+                'wind_speed': 10 + (field_id * 2),
+                'description': ['partly cloudy', 'sunny', 'light rain'][field_id % 3],
+                'icon': ['02d', '01d', '10d'][field_id % 3],
+                'forecast': forecast
+            }
+        }
+        return jsonify(weather_data)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# Mock sensors API endpoint
+@app.route('/api/sensors/<int:field_id>')
+def sensors_api(field_id):
+    """API endpoint for sensor data"""
+    try:
+        # Create field-specific mock sensor data
+        health_statuses = [
+            {'label': 'Good', 'color': 'success', 'icon': 'check-circle-fill'},
+            {'label': 'Warning', 'color': 'warning', 'icon': 'exclamation-triangle-fill'},
+            {'label': 'Critical', 'color': 'danger', 'icon': 'x-circle-fill'}
+        ]
+        
+        # Base values that change with field ID
+        temp_base = 26 + (field_id * 1.5)
+        humidity_base = 60 + (field_id * 2)
+        soil_base = 35 - (field_id * 3)
+        
+        sensor_data = {
+            'success': True,
+            'health_status': health_statuses[field_id % 3],
+            'sensors': [
+                {
+                    'id': 1,
+                    'name': 'Temperature',
+                    'value': temp_base,
+                    'unit': '°C',
+                    'status': ['good', 'good', 'warning'][field_id % 3],
+                    'timestamp': datetime.now().isoformat()
+                },
+                {
+                    'id': 2,
+                    'name': 'Humidity',
+                    'value': humidity_base,
+                    'unit': '%',
+                    'status': ['good', 'warning', 'good'][field_id % 3],
+                    'timestamp': datetime.now().isoformat()
+                },
+                {
+                    'id': 3,
+                    'name': 'Soil Moisture',
+                    'value': soil_base,
+                    'unit': '%',
+                    'status': ['warning', 'good', 'danger'][field_id % 3],
+                    'timestamp': datetime.now().isoformat()
+                },
+                {
+                    'id': 4,
+                    'name': 'Light Level',
+                    'value': 750 + (field_id * 100),
+                    'unit': 'lux',
+                    'status': ['good', 'good', 'good'][field_id % 3],
+                    'timestamp': datetime.now().isoformat()
+                }
+            ]
+        }
+        return jsonify(sensor_data)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# Mock diseases API endpoint
+@app.route('/api/diseases/<int:field_id>')
+def diseases_api(field_id):
+    """API endpoint for disease detection data"""
+    try:
+        # Create field-specific mock disease data
+        detection_time = datetime.now()
+        
+        # Different locations based on field ID
+        base_coordinates = {
+            1: (22.5726, 88.3639),  # Kolkata
+            2: (19.0760, 72.8777),  # Mumbai
+            3: (28.6139, 77.2090)   # Delhi
+        }
+        
+        # Get base coordinates or default to Kolkata
+        base_lat, base_lon = base_coordinates.get(field_id, (22.5726, 88.3639))
+        
+        # Disease types that vary by field
+        diseases = [
+            ['Leaf_Blight', 'Powdery_Mildew', 'Rust'],
+            ['Bacterial_Leaf_Spot', 'Early_Blight', 'Late_Blight'],
+            ['Yellow_Leaf_Curl', 'Black_Spot', 'Anthracnose']
+        ]
+        
+        # Statuses that vary by field
+        statuses = [
+            ['detected', 'monitoring', 'treated'],
+            ['monitoring', 'treated', 'resolved'],
+            ['detected', 'detected', 'monitoring']
+        ]
+        
+        field_diseases = diseases[field_id % 3]
+        field_statuses = statuses[field_id % 3]
+        
+        disease_data = {
+            'success': True,
+            'stats': {
+                'total': 3 + field_id,
+                'active': 1 + (field_id % 3),
+                'treated': 1,
+                'resolved': field_id % 2
+            },
+            'detections': [
+                {
+                    'id': 1,
+                    'disease_name': field_diseases[0],
+                    'status': field_statuses[0],
+                    'confidence': 0.92 - (field_id * 0.05),
+                    'detected_at': detection_time.isoformat(),
+                    'latitude': base_lat,
+                    'longitude': base_lon
+                },
+                {
+                    'id': 2,
+                    'disease_name': field_diseases[1],
+                    'status': field_statuses[1],
+                    'confidence': 0.85 - (field_id * 0.03),
+                    'detected_at': (detection_time - timedelta(days=2)).isoformat(),
+                    'latitude': base_lat + 0.005,
+                    'longitude': base_lon + 0.005
+                },
+                {
+                    'id': 3,
+                    'disease_name': field_diseases[2],
+                    'status': field_statuses[2],
+                    'confidence': 0.78 - (field_id * 0.02),
+                    'detected_at': (detection_time - timedelta(days=5)).isoformat(),
+                    'latitude': base_lat - 0.005,
+                    'longitude': base_lon - 0.005
+                }
+            ]
+        }
+        return jsonify(disease_data)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/config/geoapify')
+def get_geoapify_api_key():
+    """Return the Geoapify API key for use in the frontend"""
+    return jsonify({
+        'apiKey': Config.GEOAPIFY_API_KEY
+    })
+
+# Initialize Gemini client
+try:
+    client = genai.Client(api_key=Config.GEMINI_API_KEY)
+except Exception as e:
+    print(f"Error initializing Gemini client: {e}")
+    client = None
+
+# Session-based chat objects
+chat_sessions = {}
+
+@app.route('/api/chatbot', methods=['POST'])
+def chatbot():
+    if not client:
+        return jsonify({'success': False, 'response': 'Gemini API is not available. Check your setup.'})
+
+    try:
+        data = request.get_json()
+        user_message = data.get('message', '').strip()
+        session_id = data.get('session_id', 'default')
+
+        if not user_message:
+            return jsonify({'success': False, 'response': 'Please enter a message.'})
+
+        # Create a session if it doesn't exist
+        if session_id not in chat_sessions:
+            chat_sessions[session_id] = {
+                'messages': [],
+                'system_instruction': (
+                    "You are AgroDx, an AI assistant focused only on farming, plant diseases, fertilizers, and soil health. "
+                    "Provide concise, polite, and informative responses. Don't use markdown or special symbols. "
+                    "Only respond to farming-related topics."
+                )
+            }
+
+        # Add user message to session history
+        chat_sessions[session_id]['messages'].append({"role": "user", "content": user_message})
+
+        # Prepare prompt including the system instruction and previous messages
+        prompt = chat_sessions[session_id]['system_instruction']
+        for message in chat_sessions[session_id]['messages']:
+            prompt += f"\n{message['role'].capitalize()}: {message['content']}"
+
+        # Send the message and get the response from Gemini
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[prompt]
+        )
+
+        bot_message = response.text.strip() if response else "Sorry, I couldn't generate a reply right now."
+
+        # Add the bot's response to session history
+        chat_sessions[session_id]['messages'].append({"role": "model", "content": bot_message})
+
+        return jsonify({'success': True, 'response': bot_message})
+
+    except Exception as e:
+        print(f"Error in chatbot route: {e}")
+        return jsonify({'success': False, 'response': 'An error occurred while generating a response.'})
+
+
 
 if __name__ == '__main__':
     # Create the model directory if it doesn't exist
