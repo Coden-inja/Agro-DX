@@ -5,12 +5,13 @@ AgroDX is a plant disease detection application that helps farmers identify and 
 ## Features
 
 - **Image-based Disease Detection**: Uses deep learning to identify plant diseases from uploaded photos
-- **Offline Detection**: Full functionality available even without internet connection
+- **Offline Detection**: The offline feature is turned off due to poor perfomance after model conversion
 - **Text-based Disease Detection**: Analyze disease symptoms using natural language processing
 - **User-friendly Interface**: Intuitive design for seamless experience
 - **Responsive Design**: Works on desktop and mobile devices
 - **Disease Information**: Provides detailed information about detected diseases
 - **Firebase Authentication**: Optional user account creation for saving detection history
+- **Speech to text**: For farmers to interact without the hassle of typing
 
 ## Technical Capabilities
 
@@ -32,7 +33,7 @@ AgroDX is a plant disease detection application that helps farmers identify and 
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/agrodx.git
+git clone https://github.com/Coden-inja/Agro-DX
 cd agrodx
 ```
 
@@ -171,10 +172,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- Plant Village dataset for disease images
+- Augmented Plant Village dataset for disease images
 - TensorFlow.js for client-side model inference
-<<<<<<< HEAD
 - All contributors and maintainers 
-=======
-- All contributors and maintainers 
->>>>>>> 0f7c0da (Added tutorial video)

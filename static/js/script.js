@@ -44,10 +44,10 @@ document.addEventListener("DOMContentLoaded", function () {
     setTimeout(() => {
         // Only preload if we're in offline mode
         if (document.getElementById('mode-toggle').value === 'offline') {
-            console.log("Preloading high-accuracy model in the background...");
+            console.log("Offline model down, switching to online model...");
             loadOfflineModel().then(success => {
                 if (success) {
-                    console.log("High-accuracy model preloaded successfully!");
+                    console.log("High-accuracy online model loaded successfully!");
                 } else {
                     console.warn("Could not preload high-accuracy model");
                 }
