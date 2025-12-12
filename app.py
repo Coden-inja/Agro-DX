@@ -1192,7 +1192,7 @@ def analyze_disease_factors():
         try:
             if client:  # Using the Gemini client
                 response = client.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-2.5-flash",
                     contents=[prompt]
                 )
                 
@@ -1550,7 +1550,7 @@ def chatbot():
 
         # Send the message and get the response from Gemini
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=[prompt]
         )
 
