@@ -42,7 +42,7 @@ def detect_disease(symptoms):
     
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=[f"""The user describes the following plant symptoms: {symptoms}. 
             
             1. First, identify the most likely plant disease based on these symptoms. 
